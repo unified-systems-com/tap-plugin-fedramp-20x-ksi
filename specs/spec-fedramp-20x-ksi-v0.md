@@ -98,7 +98,7 @@ The `compliance` dimension key is intended as the shared root for all compliance
 
 This convention keeps dimension-scoped queries useful: a single filter on `compliance` dimension key returns all compliance-framework data regardless of source framework, while filtering on the value scopes to one framework.
 
-The plugin does not seed a dimension node describing `compliance: fedramp-20x` in v0. If TAP later adopts the dimension-node convention more broadly (see `tap_grid` dimension specs), the refresh workflow may seed one as part of catalog import.
+The plugin seeds a dimension node for `compliance: fedramp-20x` at `grift/dimension.grift.json`, following the precedent set by `aws_core` (`tap.cloud: aws`) and `genericom` (`tap.env: genericom-prod`). The node carries a human-readable description of what the dimension covers and anchors the dimension as a graph-queryable entity. The dimension node is static plugin-author-authored metadata and is distinct from the catalog waves described in `req-fedramp-20x-ksi-reference` — it ships on day one and does not churn with the KSI catalog.
 
 #### Acceptance Criteria
 
@@ -107,6 +107,7 @@ The plugin does not seed a dimension node describing `compliance: fedramp-20x` i
 | req-fedramp-20x-ksi-dimensions-1 | Default Dimensions Required | Implemented | Each model declares `DEFAULT_DIMENSIONS = {"compliance": "fedramp-20x"}`. | |
 | req-fedramp-20x-ksi-dimensions-2 | Edge Default Dimensions Required | Implemented | Each edge definition declares `default_dimensions: {"compliance": "fedramp-20x"}`. | |
 | req-fedramp-20x-ksi-dimensions-3 | Shared Compliance Key | Implemented | The `compliance` dimension key is intended as the convention for all future compliance-framework plugins. | |
+| req-fedramp-20x-ksi-dimensions-4 | Dimension Node Seeded | Implemented | The plugin seeds a dimension node at `grift/dimension.grift.json` describing `compliance: fedramp-20x`. | Ships on day one; not part of the KSI catalog wave cadence |
 
 ### Model Catalog
 ----
@@ -337,7 +338,7 @@ Idempotency: each wave uses deterministic entity IDs derived from the theme or i
 
 Deprecation semantics: when source data drops an indicator between refresh runs, the next wave emits a modification that sets `status: deprecated` on that indicator rather than deleting it. Later waves can supersede earlier status decisions if source data resurrects an indicator.
 
-v0 scaffold: the plugin ships no GRIFT wave files yet. The manifest omits the `[grift]` section until the first wave is produced by the refresh workflow. Adding waves is additive and does not require breaking changes to plugin structure.
+v0 scaffold: the plugin ships no KSI catalog wave files yet. The manifest's `[grift]` section currently declares only the static `dimension.grift.json` seed (see `req-fedramp-20x-ksi-dimensions`); the first KSI wave is produced by the refresh workflow. Adding waves is additive and does not require breaking changes to plugin structure.
 
 #### Acceptance Criteria
 

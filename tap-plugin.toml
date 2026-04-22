@@ -10,3 +10,6 @@ ksi_indicator = "plugins.fedramp_20x_ksi.models.ksi_indicator.KsiIndicator"
 
 [edges]
 CONTAINS_INDICATOR = "edges/CONTAINS_INDICATOR.edge.json"
+
+[grift]
+dimension = "grift/dimension.grift.json"
