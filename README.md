@@ -4,25 +4,26 @@ TAP plugin modeling the [FedRAMP 20x Key Security Indicators](https://www.fedram
 
 ## What's in the catalog
 
-**Themes** — top-level groupings of related security outcomes.
+**Themes** — top-level groupings of related security outcomes (10 as of the `2026.0.1.1-wip-preview` consolidated rules release).
 
 | Code | Theme |
 | --- | --- |
-| KSI-ABF | Authorization by FedRAMP |
-| KSI-CHM | Change Management |
+| KSI-CMT | Change Management |
 | KSI-CNA | Cloud Native Architecture |
-| KSI-CYE | Cybersecurity Education |
+| KSI-CED | Cybersecurity Education |
 | KSI-IAM | Identity and Access Management |
-| KSI-INC | Incident Response |
+| KSI-INR | Incident Response |
 | KSI-MLA | Monitoring, Logging, and Auditing |
-| KSI-POI | Policy and Inventory |
-| KSI-RCP | Recovery Planning |
+| KSI-PIY | Policy and Inventory |
+| KSI-RPL | Recovery Planning |
 | KSI-SVC | Service Configuration |
 | KSI-SCR | Supply Chain Risk |
 
-**Indicators** — individual measurable security outcomes within a theme (e.g. KSI-IAM-01). Approximately 56 apply at the Low impact baseline, 61 at Moderate. Each indicator carries source-faithful validation criteria, lifecycle status (`draft`/`published`/`deprecated`), and the baselines it applies to.
+**Indicators** — individual measurable security outcomes within a theme (e.g. `KSI-IAM-MFA`). Each indicator carries a requirement statement, NIST 800-53 control references, source metadata (changelog, terms, external references), applicable FedRAMP Certification Classes, and lifecycle status (`draft`/`published`/`deprecated`).
 
-FedRAMP renamed these fields on 2025-11-18: what they now call a "theme" was previously an "indicator", and what they now call an "indicator" was previously a "requirement". This plugin uses the current vocabulary.
+**FedRAMP Certification Classes** — values `a`/`b`/`c`/`d` replace the legacy Low/Moderate/High impact-baseline system. Class A is pilot-grade (replaces "FedRAMP Ready"); B roughly maps to Low/Li-SaaS; C to Moderate; D to High (requires agency sponsor).
+
+The plugin source of truth is the FedRAMP-published machine-readable [consolidated rules](https://github.com/FedRAMP/rules/blob/main/fedramp-consolidated-rules.json) (`KSI` section). `KSI-ABF` (Authorization by FedRAMP) appears in the FedRAMP docs site but is not part of the machine-readable KSI catalog and is out of scope for this plugin.
 
 ## TAP surfaces
 

@@ -4,20 +4,25 @@
 
 The FedRAMP 20x KSI plugin models the Key Security Indicator (KSI) catalog defined by the FedRAMP 20x program. Its job is to make the current KSI themes and individual indicators available as first-class TAP graph nodes so other plugins, dashboards, and analyses can attach evidence, observations, and compliance posture to specific indicators.
 
-The plugin stays narrow on purpose. It is responsible for catalog representation and lifecycle, not for evidence collection, control mapping to other frameworks, or compliance scoring. Those are deliberately deferred so the v0 catalog can stabilize before downstream consumers depend on richer semantics.
+The plugin stays narrow on purpose. It is responsible for catalog representation and lifecycle, not for evidence collection, crosswalks to other frameworks, or compliance scoring. Those are deliberately deferred so the v0 catalog can stabilize before downstream consumers depend on richer semantics.
 
-The FedRAMP 20x program is itself evolving on a rolling-release cadence. The plugin treats the published catalog as the source of truth and resists baking specific indicator content into plugin source code. Catalog content enters the plugin as versioned GRIFT waves shipped alongside the code, authored by a refresh workflow that runs against the live FedRAMP source. Each wave is a point-in-time batch capturing catalog additions, modifications, and deprecations; applied in order they reconstruct the current catalog.
+The FedRAMP 20x program is itself evolving on a rolling-release cadence. The plugin treats the machine-readable consolidated rules published by FedRAMP at [github.com/FedRAMP/rules](https://github.com/FedRAMP/rules) as the canonical source of truth. Catalog content enters the plugin as versioned GRIFT waves shipped alongside the code, authored by a refresh workflow that runs against that source. Each wave is a point-in-time batch capturing catalog additions, modifications, and deprecations; applied in order they reconstruct the current catalog.
 
 The plugin's TAP-managed types use the `compliance: fedramp-20x` default dimension. Framework identity is carried by the dimension rather than by a singleton root model, leaving room for other compliance frameworks (NIST 800-53, ISO 27001, etc.) to coexist later in parallel plugins under the same `compliance` dimension key.
 
 ## Vocabulary
 
-The FedRAMP 20x program renamed its catalog field names on 2025-11-18. The plugin uses the current vocabulary throughout:
+FedRAMP 20x introduces new terminology that differs from both the legacy FedRAMP impact-baseline system and early 20x drafts. The plugin uses the current source-authoritative vocabulary throughout:
 
-- **Theme** — a top-level grouping of related security outcomes, identified by a code like `KSI-IAM`. FedRAMP defines 11 themes as of April 2026. (Previously called "indicator" in the pre-2025-11-18 catalog.)
-- **Indicator** — a single measurable security outcome within a theme, identified by a code like `KSI-IAM-01`. Each indicator has pass/fail validation criteria and applies to one or more FedRAMP impact baselines. (Previously called "requirement" in the pre-2025-11-18 catalog.)
-- **Baseline** — a FedRAMP impact tier to which an indicator applies. v0 recognizes `low` and `moderate`. Approximately 56 indicators apply at the Low baseline; approximately 61 at the Moderate baseline. Many indicators apply to both.
-- **KSI** — the generic term for the Key Security Indicator program. Used when referring to the program as a whole rather than a specific theme or indicator.
+- **Theme** — a top-level grouping of related security outcomes, identified by a code like `KSI-IAM`. The machine-readable catalog defines 10 themes as of the `2026.0.1.1-wip-preview` rules release.
+- **Indicator** — a single measurable security outcome within a theme, identified by a code like `KSI-IAM-MFA`. Each indicator has a requirement statement, applicable FedRAMP Certification Classes, and (optionally) per-class statement variants. Source field `statement` carries the requirement text; source field `varies_by_class` provides class-specific alternative text.
+- **Certification Class** — the FedRAMP 20x classification system, values `a`, `b`, `c`, `d`, replacing the legacy Low/Moderate/High impact-baseline system. Approximate legacy mapping:
+  - **Class A** — pilot / preparation; replaces the "FedRAMP Ready" designation. Most requirements apply only partially at this class.
+  - **Class B** — roughly corresponds to legacy FedRAMP Low / Li-SaaS.
+  - **Class C** — roughly corresponds to legacy FedRAMP Moderate.
+  - **Class D** — roughly corresponds to legacy FedRAMP High; requires an agency sponsor.
+- **Controls** — NIST 800-53 Rev 5 control IDs referenced by an indicator (e.g. `ac-2.2`, `ia-12`). Carried as a simple list in v0; crosswalking them to actual NIST control nodes via graph edges is deferred work tracked in `req-fedramp-20x-ksi-nist-crosswalk`.
+- **KSI** — the generic term for the Key Security Indicator program. Used when referring to the program as a whole.
 
 Phases (Phase One, Phase Two) are a program-level concept. The plugin tracks whichever phase is currently authoritative and does not model phase as a field on the catalog itself.
 
@@ -25,24 +30,27 @@ Phases (Phase One, Phase Two) are a program-level concept. The plugin tracks whi
 
 |    |              |                                                                 |
 | :---: | ---       | ---                                                             |
-| 1. | Narrow         | v0 models only KSI themes and indicators; no evidence, scoring, or framework crosswalk |
+| 1. | Narrow         | v0 models only KSI themes and indicators; no evidence, scoring, or framework crosswalk edges |
 | 2. | Wave-Distributed | Catalog content ships as versioned GRIFT waves authored by the refresh workflow |
 | 3. | Dimensioned    | Every TAP-managed type uses the `compliance: fedramp-20x` default dimension |
 | 4. | Lifecycle-Aware | Indicators carry an explicit status (draft/published/deprecated) so catalog churn is visible |
-| 5. | Refactor-Friendly | Model and edge shape supports a future `compliance_core` plugin without breaking changes |
+| 5. | Source-Faithful | Catalog fields preserve the shape published by FedRAMP rather than reinterpreting |
 
 ## Requirements
 
 | RID | Name | Status | Notes |
 | --- | --- | :---: | --- |
 | req-fedramp-20x-ksi-scope | [Plugin Scope](#plugin-scope) | Implemented | Defines what the plugin covers and excludes |
-| req-fedramp-20x-ksi-dimensions | [Dimension Strategy](#dimension-strategy) | Implemented | `compliance: fedramp-20x` default dimensions for every model and edge |
+| req-fedramp-20x-ksi-dimensions | [Dimension Strategy](#dimension-strategy) | Implemented | `compliance: fedramp-20x` default dimensions plus seeded dimension node |
 | req-fedramp-20x-ksi-models | [Model Catalog](#model-catalog) | Implemented | `ksi_theme` and `ksi_indicator` |
 | req-fedramp-20x-ksi-status | [Indicator Status](#indicator-status) | Implemented | Indicators carry `status` of `draft`, `published`, or `deprecated` |
-| req-fedramp-20x-ksi-baselines | [Indicator Baselines](#indicator-baselines) | Implemented | Indicators carry a `baselines` list identifying applicable FedRAMP impact tiers |
-| req-fedramp-20x-ksi-validation-json | [Indicator Validation Field](#indicator-validation-field) | Implemented | Indicators carry structured validation criteria as `validation_json` |
+| req-fedramp-20x-ksi-classes | [Indicator Certification Classes](#indicator-certification-classes) | Implemented | Indicators carry a `classes` list identifying applicable FedRAMP Certification Classes |
+| req-fedramp-20x-ksi-class-variants | [Class-Specific Statement Variants](#class-specific-statement-variants) | Implemented | Indicators preserve source `varies_by_class` shape when present |
+| req-fedramp-20x-ksi-controls | [NIST Control References](#nist-control-references) | Implemented | Indicators carry a `controls` list of NIST 800-53 control IDs |
+| req-fedramp-20x-ksi-nist-crosswalk | [NIST Control Crosswalk Edges](#nist-control-crosswalk-edges) | Backlog | Promote `controls` list entries to `MAPS_TO_CONTROL` edges once a NIST 800-53 plugin exists |
+| req-fedramp-20x-ksi-metadata | [Source Metadata Fields](#source-metadata-fields) | Implemented | Indicators carry `updated_log`, `terms`, `reference`, `reference_url` from source |
 | req-fedramp-20x-ksi-edges | [Edge Types](#edge-types) | Implemented | Single `CONTAINS_INDICATOR` edge from theme to indicator |
-| req-fedramp-20x-ksi-icons | [Icons](#icons) | Implemented | Generic type-level icons bound to models; 11 per-theme SVGs shipped as static assets |
+| req-fedramp-20x-ksi-icons | [Icons](#icons) | Implemented | Generic type-level icons bound to models; 10 per-theme SVGs shipped as static assets |
 | req-fedramp-20x-ksi-reference | [Reference Data As GRIFT Waves](#reference-data-as-grift-waves) | Proposed | Catalog ships as versioned GRIFT waves; v0 scaffold ships none yet |
 | req-fedramp-20x-ksi-refresh | [Catalog Refresh Workflow](#catalog-refresh-workflow) | Proposed | Authorship-tooling skill scaffold in place; full design deferred |
 | req-fedramp-20x-ksi-plugin-validation | [Plugin Validation](#plugin-validation) | Implemented | Structure-level validation passes; loads/runs awaiting INSTALLED_APPS integration |
@@ -62,19 +70,24 @@ The plugin covers:
 - KSI themes as first-class TAP nodes
 - individual KSI indicators as first-class TAP nodes
 - the structural relationship from a theme to its indicators
-- structured validation criteria attached to each indicator
+- the indicator requirement statement (and per-class statement variants when present)
+- NIST 800-53 control references carried on each indicator as a list
+- indicator source metadata: changelog, term references, external references
 - explicit indicator lifecycle status (`draft`, `published`, `deprecated`)
-- per-indicator applicable FedRAMP baselines (`low`, `moderate`)
+- per-indicator applicable FedRAMP Certification Classes (`a`, `b`, `c`, `d`)
 
 The plugin excludes in v0:
 
 - a `framework` model representing FedRAMP 20x as a node — framework identity is carried by the `compliance: fedramp-20x` dimension instead
-- evidence collection, evidence requirements as separate modeled nodes, or evidence-to-indicator graph relationships
+- `MAPS_TO_CONTROL` edges from indicators to NIST control nodes (deferred to `req-fedramp-20x-ksi-nist-crosswalk`)
+- `REQUIRES_EVIDENCE` edges or modeled evidence-requirement nodes
 - compliance scoring, posture, or assessment outcomes
-- crosswalks to other frameworks (NIST 800-53, ISO 27001, SOC 2, etc.)
+- crosswalks to other frameworks (ISO 27001, SOC 2, etc.)
 - assessment-organization-specific data such as 3PAO findings, ATO packages, or POA&Ms
 - per-CSP compliance state
-- FedRAMP program phase as a modeled field (phase is tracked at the program level, not on individual catalog entries)
+- FedRAMP program phase as a modeled field
+- `KSI-ABF` (Authorization by FedRAMP) — present in the FedRAMP docs site but not in the machine-readable consolidated rules; handled elsewhere as FRD/FRR material
+- FRD (definitions) and FRR (requirements) documents from the consolidated rules — out of scope for v0 KSI plugin
 
 #### Acceptance Criteria
 
@@ -82,8 +95,9 @@ The plugin excludes in v0:
 | --- | --- | :---: | --- | --- |
 | req-fedramp-20x-ksi-scope-1 | Catalog Only | Implemented | v0 covers themes and indicators as catalog data, not evidence or scoring. | |
 | req-fedramp-20x-ksi-scope-2 | No Framework Node | Implemented | The plugin does not define a `framework` model in v0; framework identity lives in the dimension. | |
-| req-fedramp-20x-ksi-scope-3 | No Crosswalks | Implemented | v0 does not model relationships to other compliance frameworks. | |
+| req-fedramp-20x-ksi-scope-3 | No Crosswalk Edges | Implemented | v0 does not model crosswalk edges to other frameworks; NIST control IDs are preserved as a list field only. | See `req-fedramp-20x-ksi-nist-crosswalk` |
 | req-fedramp-20x-ksi-scope-4 | Phase Not Modeled | Implemented | FedRAMP program phase is not a field on catalog entries; the plugin tracks whichever phase is currently authoritative. | |
+| req-fedramp-20x-ksi-scope-5 | KSI Only | Implemented | v0 models only the `KSI` section of the consolidated rules; FRD/FRR documents are out of scope. | |
 
 ### Dimension Strategy
 ----
@@ -118,28 +132,42 @@ The plugin declares two TAP-managed models: `ksi_theme` and `ksi_indicator`.
 
 #### Implementation
 
-| Model | Purpose | Key fields |
+| Model | Purpose | Fields |
 | --- | --- | --- |
-| `ksi_theme` | A top-level KSI grouping like KSI-CNA or KSI-IAM | `code`, `name`, `description` |
-| `ksi_indicator` | An individual indicator within a theme, e.g. KSI-CNA-01 | `code`, `name`, `description`, `validation_json`, `status`, `baselines` |
+| `ksi_theme` | A top-level KSI grouping like KSI-CNA or KSI-IAM | `code`, `name`, `short_name`, `web_name`, `description` |
+| `ksi_indicator` | An individual indicator within a theme, e.g. KSI-IAM-MFA | `code`, `name`, `description`, `classes`, `class_variants`, `controls`, `updated_log`, `terms`, `reference`, `reference_url`, `status` |
 
 Field intent:
 
-- **`code`**: the canonical FedRAMP identifier. For themes: the theme code (e.g. `"KSI-CNA"`). For indicators: the full indicator code (e.g. `"KSI-CNA-01"`). Stable across catalog refreshes and used for upsert keys.
-- **`name`**: human-readable name as published by FedRAMP. Canonical entity-metadata field per `req-grid-entity-metadata`.
-- **`description`**: human-readable plain-text description as published by FedRAMP.
-- **`validation_json`**: structured validation criteria as published by FedRAMP, stored verbatim from source. Indicator-only. Detailed in `req-fedramp-20x-ksi-validation-json`.
-- **`status`**: indicator lifecycle state. Indicator-only. Detailed in `req-fedramp-20x-ksi-status`.
-- **`baselines`**: list of FedRAMP impact baselines to which the indicator applies. Indicator-only. Detailed in `req-fedramp-20x-ksi-baselines`.
+**`ksi_theme`:**
 
-The plugin should not invent validation, naming, or grouping conventions that diverge from what FedRAMP publishes. The refresh workflow is responsible for converting source data into these field shapes; the catalog model itself stays close to the source.
+- **`code`**: source `id` — canonical FedRAMP theme identifier (e.g. `"KSI-IAM"`). Regex `^KSI-[A-Z]{3}$`. Stable across refreshes and used for upsert keys.
+- **`name`**: source `name` — human-readable name (e.g. `"Identity and Access Management"`). Canonical entity-metadata field per `req-grid-entity-metadata`.
+- **`short_name`**: source `short_name` — three-letter code (e.g. `"IAM"`).
+- **`web_name`**: source `web_name` — URL-friendly slug used by fedramp.gov.
+- **`description`**: optional TAP-managed description. Not sourced from FedRAMP (themes do not ship descriptions in the consolidated rules); kept for TAP canonical-metadata alignment and future human-authored content.
+
+**`ksi_indicator`:**
+
+- **`code`**: canonical FedRAMP indicator identifier (e.g. `"KSI-IAM-MFA"`). Regex `^KSI-[A-Z]{3}-[A-Z0-9]{3}$`. Stable across refreshes and used for upsert keys.
+- **`name`**: source `name` — short title. Canonical entity-metadata field per `req-grid-entity-metadata`.
+- **`description`**: maps from source `statement` when the indicator uses the direct statement form. When the indicator uses `varies_by_class` instead, `description` is empty and `class_variants` carries the per-class statements.
+- **`classes`**: list of FedRAMP Certification Classes to which the indicator applies. Detailed in `req-fedramp-20x-ksi-classes`.
+- **`class_variants`**: source `varies_by_class` preserved verbatim when present, else null. Detailed in `req-fedramp-20x-ksi-class-variants`.
+- **`controls`**: list of NIST 800-53 control IDs. Detailed in `req-fedramp-20x-ksi-controls`.
+- **`updated_log`**: source `updated` array preserved verbatim. Detailed in `req-fedramp-20x-ksi-metadata`.
+- **`terms`**: source `terms` list preserved verbatim. Detailed in `req-fedramp-20x-ksi-metadata`.
+- **`reference`**, **`reference_url`**: optional source `reference` and `reference_url` strings.
+- **`status`**: indicator lifecycle state. Detailed in `req-fedramp-20x-ksi-status`.
+
+The plugin should not invent validation, naming, or grouping conventions that diverge from what FedRAMP publishes. The refresh workflow is responsible for pulling source into these field shapes; the catalog model stays close to source.
 
 #### Acceptance Criteria
 
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
 | req-fedramp-20x-ksi-models-1 | Two Model Set | Implemented | v0 declares exactly two TAP-managed models: `ksi_theme` and `ksi_indicator`. | |
-| req-fedramp-20x-ksi-models-2 | Stable Codes For Upsert | Implemented | `code` is the stable identifier used by the refresh workflow for upserts on both models. | |
+| req-fedramp-20x-ksi-models-2 | Stable Codes For Upsert | Implemented | `code` is the stable identifier used by the refresh workflow for upserts on both models. | Theme regex `^KSI-[A-Z]{3}$`; indicator regex `^KSI-[A-Z]{3}-[A-Z0-9]{3}$` |
 | req-fedramp-20x-ksi-models-3 | Source-Faithful Fields | Implemented | Catalog content fields preserve FedRAMP's published shape rather than re-interpreting it. | |
 
 #### Open Questions
@@ -157,11 +185,11 @@ Each `ksi_indicator` carries a `status` field with one of three values: `draft`,
 
 The status vocabulary in v0 is intentionally small:
 
-- **`draft`**: the indicator appears in source but is not yet finalized for current authorization use
-- **`published`**: the indicator is current and authoritative
+- **`draft`**: the indicator appears in a work-in-progress source release but is not yet part of the stable consolidated rules
+- **`published`**: the indicator is current and authoritative in the consolidated rules
 - **`deprecated`**: the indicator was previously published but has since been retired or superseded
 
-The refresh workflow assigns `status` based on the source data. When an indicator disappears from source between waves, the refresh workflow emits a wave entry marking it `deprecated` rather than deleting it, so historical references in other graph data remain meaningful.
+`status` is a plugin-authored derived field, not a source field. The refresh workflow sets it based on where the indicator appears in source. When an indicator disappears from source between refresh runs, the refresh workflow emits a wave entry marking it `deprecated` rather than deleting it, so historical references in other graph data remain meaningful.
 
 Per-status transition history is not tracked separately by the plugin in v0. Once the TAP history system is wired up for plugin models, indicator history will be captured through the standard mechanism.
 
@@ -173,70 +201,144 @@ Per-status transition history is not tracked separately by the plugin in v0. Onc
 | req-fedramp-20x-ksi-status-2 | Required On Indicator | Implemented | Every `ksi_indicator` has an explicit `status`; there is no implicit default. | Declared in `CREATE_REQUIRED` |
 | req-fedramp-20x-ksi-status-3 | Refresh Marks Removed As Deprecated | Proposed | The refresh workflow marks indicators that disappear from source as `deprecated` rather than deleting them. | Contract declared; implementation lives in the refresh skill |
 
-### Indicator Baselines
+### Indicator Certification Classes
 ----
-RID: `req-fedramp-20x-ksi-baselines`
+RID: `req-fedramp-20x-ksi-classes`
 Status: `Implemented`
 
-Each `ksi_indicator` carries a `baselines` list identifying the FedRAMP impact baselines to which the indicator applies.
+Each `ksi_indicator` carries a `classes` list identifying the FedRAMP Certification Classes to which it applies.
 
 #### Implementation
 
-The v0 baseline vocabulary is:
+The v0 class vocabulary is:
 
-- `low`
-- `moderate`
+- `a` — pilot / preparation (replaces legacy "FedRAMP Ready")
+- `b` — roughly legacy FedRAMP Low / Li-SaaS
+- `c` — roughly legacy FedRAMP Moderate
+- `d` — roughly legacy FedRAMP High (requires agency sponsor)
 
-`baselines` is a list because indicators commonly apply to both baselines. An indicator that applies to both Low and Moderate carries `["low", "moderate"]`. Ordering within the list is not significant.
+`classes` is a list because indicators commonly apply to multiple classes. The refresh workflow derives this list from source: when an indicator has a direct `statement`, all classes from the theme-level applicability apply; when an indicator has `varies_by_class`, the keys of that object are the applicable classes.
 
-The field is required and must contain at least one value. An indicator with no applicable baseline would not be distributed by FedRAMP and should not appear in the plugin catalog.
+The field is required and must contain at least one value.
 
-Baselines are stored as a list field rather than modeled as separate `ksi_baseline` nodes because:
+Classes are stored as a list field rather than modeled as separate `ksi_class` nodes because:
 
-- the baseline vocabulary is small, closed, and publisher-controlled
-- no per-baseline metadata beyond the identifier has v0 relevance
-- graph traversal on baselines is not a v0 use case
+- the class vocabulary is small, closed, and publisher-controlled
+- no per-class metadata beyond the identifier has v0 relevance
+- graph traversal on classes is not a v0 use case
 
-A future requirement may promote baselines to nodes if cross-framework baseline alignment or baseline-specific attributes become interesting.
+A future requirement may promote classes to first-class nodes with `APPLIES_AT_CLASS` edges if cross-plugin class alignment becomes relevant.
 
 #### Acceptance Criteria
 
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
-| req-fedramp-20x-ksi-baselines-1 | Baseline List Field | Implemented | `ksi_indicator` declares a `baselines` list field. | |
-| req-fedramp-20x-ksi-baselines-2 | Two-Value Vocabulary | Implemented | v0 baseline values are `low` and `moderate`; unknown values are rejected. | Enforced via `FIELD_VALIDATION_SCHEMA` enum |
-| req-fedramp-20x-ksi-baselines-3 | Non-Empty Required | Implemented | Every indicator has at least one baseline. | Enforced via `minItems: 1` |
+| req-fedramp-20x-ksi-classes-1 | Class List Field | Implemented | `ksi_indicator` declares a `classes` list field. | |
+| req-fedramp-20x-ksi-classes-2 | Four-Value Vocabulary | Implemented | v0 class values are `a`, `b`, `c`, `d`; unknown values are rejected. | Enforced via `FIELD_VALIDATION_SCHEMA` enum |
+| req-fedramp-20x-ksi-classes-3 | Non-Empty Required | Implemented | Every indicator has at least one class. | Enforced via `minItems: 1` |
 
 #### Future
 
-Promote baselines to first-class `ksi_baseline` nodes with `APPLIES_TO` edges if a concrete graph use case emerges. Current direction keeps them as a flat list.
+Promote classes to first-class `ksi_class` nodes with `APPLIES_AT_CLASS` edges if cross-plugin class alignment becomes relevant.
 
-### Indicator Validation Field
+### Class-Specific Statement Variants
 ----
-RID: `req-fedramp-20x-ksi-validation-json`
+RID: `req-fedramp-20x-ksi-class-variants`
 Status: `Implemented`
 
-Each `ksi_indicator` carries a `validation_json` field holding the structured validation criteria for the indicator.
+Each `ksi_indicator` carries an optional `class_variants` JSON field preserving the source `varies_by_class` structure when present.
 
 #### Implementation
 
-The field stores the validation block from the source FedRAMP 20x catalog verbatim as JSON. The plugin does not impose its own schema on the contents in v0 because the source format is still evolving and committing to a derived schema risks drift.
+Source indicators come in two shapes:
 
-The refresh workflow is responsible for extracting the validation block from source and writing it into this field. Downstream consumers (evidence plugins, dashboards) should treat the field as informational in v0 rather than as a typed contract.
+1. **Direct statement** — the indicator has a single `statement` string applicable to all declared classes. The plugin stores the text in `description` and leaves `class_variants` null.
+2. **Varies by class** — the indicator's statement differs per class, carried in source as `varies_by_class: {<class>: {statement: "..."}, ...}`. The plugin stores the source object verbatim in `class_variants` and leaves `description` empty.
 
-A future requirement may introduce a separate `ksi_evidence_requirement` model with structured fields and a `REQUIRES_EVIDENCE` edge from indicator to requirement. That migration is non-breaking: the `validation_json` field stays as the source-of-truth blob while structured nodes derive from it.
+The source shape is preserved rather than normalized because the format is still evolving (FedRAMP 20x is in WIP preview) and committing to a derived schema risks drift. Downstream consumers that need a single representative statement resolve it by looking at `description` first and falling back to `class_variants[<preferred-class>].statement`.
 
 #### Acceptance Criteria
 
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
-| req-fedramp-20x-ksi-validation-json-1 | Source-Faithful Storage | Implemented | `validation_json` stores the source validation block verbatim. | |
-| req-fedramp-20x-ksi-validation-json-2 | No Imposed Schema | Implemented | v0 does not impose a derived JSON schema on `validation_json` contents. | Field schema is `{"type": ["object", "null"]}` only |
-| req-fedramp-20x-ksi-validation-json-3 | Optional Field | Implemented | `validation_json` may be empty or null when source data lacks a validation block. | |
+| req-fedramp-20x-ksi-class-variants-1 | Source Shape Preserved | Implemented | `class_variants` stores the source `varies_by_class` object verbatim. | |
+| req-fedramp-20x-ksi-class-variants-2 | Mutually Exclusive With Description | Implemented | An indicator populates either `description` (direct statement) or `class_variants` (varies by class), not both. | |
+| req-fedramp-20x-ksi-class-variants-3 | Optional Field | Implemented | `class_variants` is null when the indicator uses a direct statement. | |
+
+### NIST Control References
+----
+RID: `req-fedramp-20x-ksi-controls`
+Status: `Implemented`
+
+Each `ksi_indicator` carries a `controls` list of NIST 800-53 Rev 5 control IDs referenced by the indicator.
+
+#### Implementation
+
+The field is a list of strings following the source format, e.g. `["ac-2.2", "ac-2.3", "ia-12", "ia-12.2"]`. Empty list is valid when source has no referenced controls.
+
+In v0 the `controls` field is a simple list. The plugin does not create graph edges to NIST control nodes because no NIST control nodes exist in TAP yet. Once a NIST 800-53 plugin lands, those list entries can be promoted to `MAPS_TO_CONTROL` edges without changing the plugin's data model — tracked in `req-fedramp-20x-ksi-nist-crosswalk`.
+
+#### Acceptance Criteria
+
+| ACID | Title | Status | Description | Notes |
+| --- | --- | :---: | --- | --- |
+| req-fedramp-20x-ksi-controls-1 | Controls List Field | Implemented | `ksi_indicator` declares a `controls` list field holding NIST 800-53 control IDs. | |
+| req-fedramp-20x-ksi-controls-2 | Source Format Preserved | Implemented | Control IDs are stored in the format used by source (lowercase, dotted, e.g. `ac-2.2`). | |
+| req-fedramp-20x-ksi-controls-3 | No Graph Edges In V0 | Implemented | The plugin does not create edges from indicators to NIST control nodes in v0. | See `req-fedramp-20x-ksi-nist-crosswalk` |
+
+### NIST Control Crosswalk Edges
+----
+RID: `req-fedramp-20x-ksi-nist-crosswalk`
+Status: `Backlog`
+
+Promote each `ksi_indicator.controls` entry to a `MAPS_TO_CONTROL` edge from the indicator to an actual NIST 800-53 Rev 5 control node.
+
+#### Status Details
+
+Backlog. Requires a future `nist_800_53` (or similarly-named) plugin to provide NIST control nodes as the edge target. Until then, `controls` stays as a list field carrying source data.
 
 #### Future
 
-Promote validation criteria to a structured `ksi_evidence_requirement` model with `REQUIRES_EVIDENCE` edges once the source format stabilizes and TAP has a concrete consumer for graph-shaped evidence requirements.
+Once NIST control nodes exist in TAP:
+
+- define a `MAPS_TO_CONTROL` edge in this plugin (or in a cross-framework crosswalk plugin)
+- the refresh workflow creates `MAPS_TO_CONTROL` edges from each indicator to each referenced control node at wave-import time
+- the `controls` list field remains as the source-of-truth blob; edges derive from it
+- any control ID in the list that does not resolve to an existing NIST control node is logged rather than failing the import
+
+Open questions when this is picked up:
+
+- Does the crosswalk edge live in this plugin, the NIST plugin, or a dedicated crosswalk plugin?
+- How are control ID format differences (e.g. `ac-2.2` vs `AC-2(2)`) normalized at edge-creation time?
+- What happens when FedRAMP source references a control that has since been removed from NIST Rev 6?
+
+### Source Metadata Fields
+----
+RID: `req-fedramp-20x-ksi-metadata`
+Status: `Implemented`
+
+Each `ksi_indicator` preserves source metadata fields: `updated_log`, `terms`, `reference`, and `reference_url`.
+
+#### Implementation
+
+- **`updated_log`**: JSONField preserving the source `updated` array verbatim. Each entry is `{date: "YYYY-MM-DD", comment: "..."}`. Empty list is valid.
+- **`terms`**: list of strings preserving the source `terms` array verbatim. Each string is a term name referenced by the indicator's statement (e.g. `"Information Resource"`, `"Machine-Based (Information Resources)"`). Empty list is valid. Graph edges to TAP term nodes are out of scope for v0 (no term-node model exists yet).
+- **`reference`**: optional string preserving the source `reference` field.
+- **`reference_url`**: optional URL string preserving the source `reference_url` field.
+
+These fields are preserved rather than parsed or normalized because (1) they are evolving WIP in source, and (2) v0 has no concrete consumer that requires structured access. Downstream consumers can inspect them directly.
+
+#### Acceptance Criteria
+
+| ACID | Title | Status | Description | Notes |
+| --- | --- | :---: | --- | --- |
+| req-fedramp-20x-ksi-metadata-1 | Updated Log Preserved | Implemented | `updated_log` stores the source `updated` array verbatim. | |
+| req-fedramp-20x-ksi-metadata-2 | Terms Preserved | Implemented | `terms` stores the source `terms` list verbatim. | |
+| req-fedramp-20x-ksi-metadata-3 | References Preserved | Implemented | `reference` and `reference_url` store source reference fields as optional strings. | |
+
+#### Future
+
+Promote `terms` list entries to `REFERENCES_TERM` edges once a term-node model exists in TAP.
 
 ### Edge Types
 ----
@@ -251,7 +353,7 @@ The plugin declares one edge type: `CONTAINS_INDICATOR`.
 | --- | --- | --- |
 | `CONTAINS_INDICATOR` | `ksi_theme` → `ksi_indicator` | A theme contains an individual indicator |
 
-The plugin does not define edges for cross-indicator relationships, indicator dependencies, or framework-to-theme containment in v0. Cross-indicator dependencies, where they exist in source data, may be captured in `validation_json` as informational content until there is a concrete graph use case.
+The plugin does not define edges for cross-indicator relationships, indicator dependencies, framework-to-theme containment, NIST control crosswalks, or term references in v0. Those are covered by deferred requirements (`req-fedramp-20x-ksi-nist-crosswalk`) or parked in field-level storage until concrete consumers emerge.
 
 If a future `framework` model is introduced (in this plugin or in a future `compliance_core` plugin), a `CONTAINS_THEME` edge would naturally accompany it. Adding that later is non-breaking for `CONTAINS_INDICATOR`.
 
@@ -277,25 +379,24 @@ TAP's v1 icon contract (`spec-grid-icon.md` `req-grid-icon-type`) binds one icon
 - `ksi_theme` → `ENTITY_ICON = "ksi-theme"` (one generic theme icon)
 - `ksi_indicator` → `ENTITY_ICON = "ksi-indicator"` (one generic indicator icon)
 
-The plugin also ships 11 per-theme SVGs as static assets under the same `static/fedramp_20x_ksi/icons/` directory:
+The plugin also ships 10 per-theme SVGs as static assets under the same `static/fedramp_20x_ksi/icons/` directory, matching the theme codes in the machine-readable consolidated rules:
 
 | Icon key | Theme code | Title |
 | --- | --- | --- |
-| `ksi-abf.svg` | KSI-ABF | Authorization by FedRAMP |
-| `ksi-chm.svg` | KSI-CHM | Change Management |
+| `ksi-cmt.svg` | KSI-CMT | Change Management |
 | `ksi-cna.svg` | KSI-CNA | Cloud Native Architecture |
-| `ksi-cye.svg` | KSI-CYE | Cybersecurity Education |
+| `ksi-ced.svg` | KSI-CED | Cybersecurity Education |
 | `ksi-iam.svg` | KSI-IAM | Identity and Access Management |
-| `ksi-inc.svg` | KSI-INC | Incident Response |
+| `ksi-inr.svg` | KSI-INR | Incident Response |
 | `ksi-mla.svg` | KSI-MLA | Monitoring, Logging, and Auditing |
-| `ksi-poi.svg` | KSI-POI | Policy and Inventory |
-| `ksi-rcp.svg` | KSI-RCP | Recovery Planning |
+| `ksi-piy.svg` | KSI-PIY | Policy and Inventory |
+| `ksi-rpl.svg` | KSI-RPL | Recovery Planning |
 | `ksi-svc.svg` | KSI-SVC | Service Configuration |
 | `ksi-scr.svg` | KSI-SCR | Supply Chain Risk |
 
-These 11 files are not bound to any `ENTITY_ICON` in v0. They are available to dashboards and templates that resolve a static URL directly from a theme's `code` field, and are positioned to become canonical per-theme icons without asset-rework once `req-grid-icon-instance` is implemented.
+These 10 files are not bound to any `ENTITY_ICON` in v0. They are available to dashboards and templates that resolve a static URL directly from a theme's `code` field, and are positioned to become canonical per-theme icons without asset-rework once `req-grid-icon-instance` is implemented.
 
-The exact theme set tracks whatever FedRAMP publishes. If FedRAMP 20x changes theme composition, the icon set and this table update accordingly through the refresh workflow and a spec revision; the list above reflects the authoritative catalog as of April 2026.
+The exact theme set tracks whatever FedRAMP publishes in the machine-readable consolidated rules. If FedRAMP changes theme composition, the icon set and this table update accordingly through the refresh workflow and a spec revision; the list above reflects the `2026.0.1.1-wip-preview` rules release.
 
 Icons follow the TAP `currentColor` convention rather than vendor brand colors. FedRAMP does not publish per-theme iconography; the icons in this plugin are TAP-authored representations.
 
@@ -306,7 +407,7 @@ Known v0 visual limitation: graph views using the default `ENTITY_ICON` resoluti
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
 | req-fedramp-20x-ksi-icons-1 | One Type Icon Each | Implemented | `ksi_theme` and `ksi_indicator` each declare one canonical `ENTITY_ICON`. | |
-| req-fedramp-20x-ksi-icons-2 | Per-Theme Assets Shipped | Implemented | The 11 per-theme SVGs ship as static assets under `static/fedramp_20x_ksi/icons/`. | Available for template/dashboard lookup by theme code |
+| req-fedramp-20x-ksi-icons-2 | Per-Theme Assets Shipped | Implemented | The 10 per-theme SVGs ship as static assets under `static/fedramp_20x_ksi/icons/`. | Available for template/dashboard lookup by theme code |
 | req-fedramp-20x-ksi-icons-3 | CurrentColor Convention | Implemented | Icons use `currentColor` for theming, not vendor brand colors. | |
 | req-fedramp-20x-ksi-icons-4 | Ready For Instance Overrides | Implemented | Per-theme SVGs are named and positioned so they become canonical per-theme icons without asset rework once `req-grid-icon-instance` is implemented. | |
 
@@ -323,7 +424,7 @@ Catalog content ships as versioned GRIFT waves in the plugin's `grift/` director
 
 #### Status Details
 
-Contract declared and documented. No waves shipped yet in v0 scaffold; the first wave is the refresh skill's first job.
+Contract declared and documented. No KSI catalog waves shipped yet in v0 scaffold; the first wave is the refresh skill's first job.
 
 #### Implementation
 
@@ -359,7 +460,7 @@ The plugin ships a Claude Code skill that fetches the current FedRAMP 20x KSI ca
 
 #### Status Details
 
-Placeholder `SKILL.md` in place at `skills/refresh-ksi-catalog/`. Full design — source fetching, diff algorithm, wave file schema beyond GRIFT base shape, UUIDv5 namespace, CI integration — deferred to a dedicated follow-up session.
+Placeholder `SKILL.md` in place at `skills/refresh-ksi-catalog/`. Source URL locked in (`github.com/FedRAMP/rules/fedramp-consolidated-rules.json`). Full design — diff algorithm, wave file schema beyond GRIFT base shape, UUIDv5 namespace, CI integration — deferred to a dedicated follow-up session.
 
 #### Implementation
 
@@ -367,9 +468,11 @@ The skill lives at `skills/refresh-ksi-catalog/SKILL.md` per `spec-plugin-archit
 
 The refresh skill is authorship tooling, not operator runtime tooling. Its intended audience is the plugin maintainer (or a CI agent acting on the maintainer's behalf). Operators running TAP installations import catalog content by pulling the plugin repo and running plugin-standard GRIFT import; they do not need to run the refresh skill themselves.
 
+Source: [github.com/FedRAMP/rules/fedramp-consolidated-rules.json](https://github.com/FedRAMP/rules/blob/main/fedramp-consolidated-rules.json) — the `KSI` section of that document. Schema at [schemas/fedramp-consolidated-rules.schema.json](https://github.com/FedRAMP/rules/blob/main/schemas/fedramp-consolidated-rules.schema.json) in the same repo.
+
 Skill responsibilities:
 
-- fetch the current FedRAMP 20x KSI catalog from the authoritative source
+- fetch the current consolidated rules JSON from the authoritative source
 - reconstruct the catalog state implied by existing waves in the plugin's `grift/` directory
 - diff current source against that reconstructed state
 - emit a new `grift/ksi-wave-YYYY-MM-DD.grift.json` file capturing additions, modifications, and deprecations
@@ -387,10 +490,11 @@ Skill design is deferred to a follow-up session. The v0 plugin scaffold ships th
 | --- | --- | :---: | --- | --- |
 | req-fedramp-20x-ksi-refresh-1 | Skill Convention | Implemented | The refresh skill lives at `skills/refresh-ksi-catalog/SKILL.md`. | Placeholder in place |
 | req-fedramp-20x-ksi-refresh-2 | Authorship Tooling | Implemented | The skill is authorship tooling for the plugin maintainer; operators are not expected to run it. | Contract documented |
-| req-fedramp-20x-ksi-refresh-3 | Wave Output | Proposed | The skill emits a dated `ksi-wave-YYYY-MM-DD.grift.json` when source differs from the reconstructed state; no file when they match. | Pending skill design |
-| req-fedramp-20x-ksi-refresh-4 | Deprecation Rule | Proposed | The skill emits `deprecated` status modifications for missing indicators rather than deletions. | Pending skill design |
-| req-fedramp-20x-ksi-refresh-5 | CI-Friendly | Proposed | The skill is structured so a GitHub Action can run it headlessly and open a PR with the resulting wave. | Pending skill design |
-| req-fedramp-20x-ksi-refresh-6 | Skill Design Deferred | Implemented | The skill's source-fetching strategy, diff algorithm, and wave-file schema beyond GRIFT base shape are specified in a follow-up session. | Placeholder `SKILL.md` flags the open design points |
+| req-fedramp-20x-ksi-refresh-3 | Source Locked | Implemented | Source is `github.com/FedRAMP/rules/fedramp-consolidated-rules.json` (`KSI` section). | |
+| req-fedramp-20x-ksi-refresh-4 | Wave Output | Proposed | The skill emits a dated `ksi-wave-YYYY-MM-DD.grift.json` when source differs from the reconstructed state; no file when they match. | Pending skill design |
+| req-fedramp-20x-ksi-refresh-5 | Deprecation Rule | Proposed | The skill emits `deprecated` status modifications for missing indicators rather than deletions. | Pending skill design |
+| req-fedramp-20x-ksi-refresh-6 | CI-Friendly | Proposed | The skill is structured so a GitHub Action can run it headlessly and open a PR with the resulting wave. | Pending skill design |
+| req-fedramp-20x-ksi-refresh-7 | Skill Design Deferred | Implemented | The skill's diff algorithm and wave-file schema beyond GRIFT base shape are specified in a follow-up session. | Placeholder `SKILL.md` flags the open design points |
 
 ### Plugin Validation
 ----
@@ -401,7 +505,7 @@ The plugin passes TAP's centralized plugin validation system at the structure le
 
 #### Status Details
 
-Structure-level validation passes in strict mode. Loads and runs validation require the plugin to be registered in TAP's `INSTALLED_APPS` with migrations applied, which is not part of v0 scaffold by design (see `spec-plugin-architecture.md`).
+Structure-level validation passes in strict mode. Loads and runs validation require the plugin to be registered in TAP's `INSTALLED_APPS` with migrations applied, which is not part of v0 scaffold by design.
 
 #### Acceptance Criteria
 
@@ -419,23 +523,26 @@ This specification does not define:
 
 - a `framework` model representing FedRAMP 20x as a node
 - a `ksi_evidence_requirement` model or `REQUIRES_EVIDENCE` edge
-- crosswalks to other compliance frameworks
+- crosswalk edges from KSI indicators to NIST control nodes (`MAPS_TO_CONTROL`) — tracked in `req-fedramp-20x-ksi-nist-crosswalk`
+- crosswalks to other compliance frameworks (ISO 27001, SOC 2, etc.)
 - assessment-organization data such as 3PAO findings, ATO packages, or POA&Ms
 - per-CSP compliance state, posture, or scoring
 - the implementation details of the refresh skill (deferred to its own session)
 - per-indicator iconography
-- a derived JSON schema for `validation_json` contents
 - FedRAMP program phase as a modeled field
+- `KSI-ABF` (Authorization by FedRAMP) — present in the docs site but not in the machine-readable consolidated rules
+- FRD and FRR sections of the consolidated rules (definitions and requirements beyond KSIs)
 
 These are intentionally outside the v0 catalog-representation pass.
 
 ## Future Work
 
-- Define and design the `refresh-ksi-catalog` skill in detail, including source fetching, diff algorithm, and wave file schema.
+- Define and design the `refresh-ksi-catalog` skill in detail, including diff algorithm, wave file schema, and UUIDv5 namespace derivation from `code`.
 - Stand up the nightly GitHub Action in the plugin repo that runs the refresh skill and opens PRs for generated waves.
-- Promote `validation_json` to a structured `ksi_evidence_requirement` model with `REQUIRES_EVIDENCE` edges once a concrete consumer exists.
+- Deliver `req-fedramp-20x-ksi-nist-crosswalk` once a NIST 800-53 plugin provides control nodes.
 - Introduce a `framework` model (likely in a future `compliance_core` plugin) and add a `CONTAINS_THEME` edge from framework to `ksi_theme`.
-- Add crosswalk edges from KSI indicators to controls in other frameworks (NIST 800-53, ISO 27001, etc.).
+- Add crosswalk edges to other compliance frameworks (ISO 27001, SOC 2, etc.).
+- Promote `terms` list entries to `REFERENCES_TERM` edges once a term-node model exists in TAP.
 - Wire indicator change history through TAP's history system once it covers plugin models, allowing indicator drift between waves to be queried as graph data in addition to reading wave files directly.
-- Promote `baselines` to first-class `ksi_baseline` nodes if cross-framework baseline alignment becomes relevant.
 - Rebind per-theme SVGs as canonical instance-level icons once `req-grid-icon-instance` is implemented in `tap_grid`.
+- Investigate whether KSI-ABF and FRD/FRR material warrant parallel sibling plugins (`fedramp_20x_frd`, `fedramp_20x_frr`, `fedramp_20x_abf`) once the KSI plugin is stable.

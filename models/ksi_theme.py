@@ -19,20 +19,32 @@ class KsiTheme(BaseModel):
     DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {"compliance": "fedramp-20x"}
 
     FIELD_CRUD_SCHEMA: ClassVar[dict[str, Any]] = {
-        "code": {"type": "string", "minLength": 1},
+        "code": {"type": "string", "pattern": "^KSI-[A-Z]{3}$"},
         "name": {"type": "string", "minLength": 1},
+        "short_name": {"type": "string", "pattern": "^[A-Z]{3}$"},
+        "web_name": {"type": "string", "minLength": 1},
         "description": {"type": "string"},
     }
 
     FIELD_VALIDATION_SCHEMA: ClassVar[dict[str, Any]] = {
-        "code": {"validation": "jsonschema", "schema": {"type": "string", "minLength": 1}},
+        "code": {
+            "validation": "jsonschema",
+            "schema": {"type": "string", "pattern": "^KSI-[A-Z]{3}$"},
+        },
         "name": {"validation": "jsonschema", "schema": {"type": "string", "minLength": 1}},
+        "short_name": {
+            "validation": "jsonschema",
+            "schema": {"type": "string", "pattern": "^[A-Z]{3}$"},
+        },
+        "web_name": {"validation": "jsonschema", "schema": {"type": "string", "minLength": 1}},
         "description": {"validation": "jsonschema", "schema": {"type": "string"}},
     }
-    CREATE_REQUIRED: ClassVar[list[str]] = ["code", "name"]
+    CREATE_REQUIRED: ClassVar[list[str]] = ["code", "name", "short_name", "web_name"]
 
-    code = models.CharField(max_length=32, blank=True, default="", db_index=True)
+    code = models.CharField(max_length=8, blank=True, default="", db_index=True)
     name = models.CharField(max_length=255, blank=True, default="")
+    short_name = models.CharField(max_length=3, blank=True, default="")
+    web_name = models.CharField(max_length=64, blank=True, default="")
     description = models.TextField(blank=True, default="")
 
     class Meta(BaseModel.Meta):
