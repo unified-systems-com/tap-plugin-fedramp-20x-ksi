@@ -1,0 +1,12 @@
+manifest_version = "0"
+plugin_version = "0.1.0"
+slug = "fedramp_20x_ksi"
+name = "FedRAMP 20x KSI"
+description = "FedRAMP 20x Key Security Indicators (KSI) framework catalog — themes and indicators."
+
+[models]
+ksi_theme = "plugins.fedramp_20x_ksi.models.ksi_theme.KsiTheme"
+ksi_indicator = "plugins.fedramp_20x_ksi.models.ksi_indicator.KsiIndicator"
+
+[edges]
+CONTAINS_INDICATOR = "edges/CONTAINS_INDICATOR.edge.json"
