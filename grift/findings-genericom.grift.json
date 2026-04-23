@@ -375,6 +375,47 @@
           }
         }
       ]
+    },
+    {
+      "batch_entity": {
+        "entity_id": "0197fed0-0000-7000-8000-000000000101",
+        "entity_type": "batch",
+        "name": "fedramp_20x_ksi open-findings-search v0.1.0",
+        "dimensions": {}
+      },
+      "batch_node": {
+        "source": "plugins.fedramp_20x_ksi",
+        "name": "fedramp_20x_ksi open-findings-search v0.1.0",
+        "description": "Seeds the reusable gryphon Search that counts per-entity open findings not covered by an active exception. Consumed by status-badge search-backed populations. Exercises multi-hop + NOT EXISTS + COUNT."
+      },
+      "nodes": [
+        {
+          "entity": {
+            "entity_id": "0197fed0-0000-7000-8000-000c00000001",
+            "entity_type": "search",
+            "name": "Open Findings Per Entity (Not Covered By Active Exception)",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "node": {
+            "name": "Open Findings Per Entity (Not Covered By Active Exception)",
+            "description": "Per-entity count of open findings that are not covered by any active exception. Consumed by status-badge search-backed populations.",
+            "search_type": "gryphon",
+            "root": "node",
+            "definition": {
+              "query": [
+                "MATCH (e)-[:HAS_FINDING]->(f:finding)",
+                "WHERE f.status = \"open\"",
+                "NOT EXISTS {",
+                "  MATCH (x:exception)-[:COVERS_FINDING]->(f)",
+                "  WHERE x.status = \"active\"",
+                "}",
+                "RETURN e.entity_id AS entity_id, COUNT(f) AS count"
+              ]
+            }
+          }
+        }
+      ],
+      "edges": []
     }
   ]
 }
