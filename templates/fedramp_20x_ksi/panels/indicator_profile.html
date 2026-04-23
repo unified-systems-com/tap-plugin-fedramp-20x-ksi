@@ -30,9 +30,7 @@
 {# HERO HEADER                                                      #}
 {# ================================================================ #}
 <header class="ksi-profile-hero">
-    <div class="ksi-profile-hero-main">
-        <h1 class="ksi-profile-name">{{ ksi.name }}</h1>
-    </div>
+    <h1 class="ksi-profile-name">{{ ksi.name }}</h1>
     <div class="ksi-profile-hero-meta">
         <span class="ksi-status ksi-status--{{ ksi.status }}">{{ ksi.status }}</span>
         <div class="ksi-profile-classes" id="ksi-profile-classes">
@@ -56,31 +54,31 @@
 </section>
 
 {# ================================================================ #}
-{# NIST CONTROLS                                                    #}
+{# NIST CONTROLS + TERMS (side by side)                             #}
 {# ================================================================ #}
-{% if ksi.controls %}
-<section class="ksi-profile-section">
-    <h2 class="ksi-profile-section-title">NIST 800-53 Controls</h2>
-    <div class="ksi-profile-chips">
-        {% for ctrl in ksi.controls %}
-        <span class="ksi-control-chip">{{ ctrl }}</span>
-        {% endfor %}
-    </div>
-</section>
-{% endif %}
-
-{# ================================================================ #}
-{# TERMS                                                            #}
-{# ================================================================ #}
-{% if ksi.terms %}
-<section class="ksi-profile-section">
-    <h2 class="ksi-profile-section-title">Referenced Terms</h2>
-    <div class="ksi-profile-chips">
-        {% for term in ksi.terms %}
-        <span class="ksi-term-chip">{{ term }}</span>
-        {% endfor %}
-    </div>
-</section>
+{% if ksi.controls or ksi.terms %}
+<div class="ksi-profile-two-col">
+    {% if ksi.controls %}
+    <section class="ksi-profile-section">
+        <h2 class="ksi-profile-section-title">NIST 800-53 Controls</h2>
+        <div class="ksi-profile-chips">
+            {% for ctrl in ksi.controls %}
+            <span class="ksi-control-chip">{{ ctrl }}</span>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+    {% if ksi.terms %}
+    <section class="ksi-profile-section">
+        <h2 class="ksi-profile-section-title">Referenced Terms</h2>
+        <div class="ksi-profile-chips">
+            {% for term in ksi.terms %}
+            <span class="ksi-term-chip">{{ term }}</span>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+</div>
 {% endif %}
 
 {# ================================================================ #}
