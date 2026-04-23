@@ -103,17 +103,20 @@
   // -------------------------------------------------------------------------
 
   /**
-   * Resolve the display statement for an indicator given the selected class.
-   * If selectedClass is "all" or the indicator has no class_variants, return
+   * Check whether a row has class-specific statement variants.
+   */
+  function hasVariants(row) {
+    return row.class_variants && Object.keys(row.class_variants).length > 0;
+  }
+
+  /**
+   * Resolve the display statement for an indicator given a class.
+   * If the class is "all" or the indicator has no class_variants, return
    * the direct description. Otherwise return the class-specific statement.
    */
-  function resolveStatement(row, selectedClass) {
-    if (
-      selectedClass !== "all" &&
-      row.class_variants &&
-      row.class_variants[selectedClass]
-    ) {
-      return row.class_variants[selectedClass].statement || "";
+  function resolveStatement(row, cls) {
+    if (cls !== "all" && row.class_variants && row.class_variants[cls]) {
+      return row.class_variants[cls].statement || "";
     }
     return row.description || "";
   }
@@ -189,6 +192,37 @@
 
     var selectedClass = savedClass;
 
+    // Per-row class overrides: entity_id -> class letter.
+    // When a user clicks a badge on a row with class_variants, the override
+    // is set for that row, changing its Statement text independently of the
+    // global class selector.
+    var rowClassOverrides = {};
+
+    /**
+     * Get the effective class for a row: per-row override if set, else global.
+     */
+    function effectiveClass(row) {
+      return rowClassOverrides[row.entity_id] || selectedClass;
+    }
+
+    /**
+     * Fade-swap the statement text in a cell's span element.
+     */
+    function fadeSwapStatement(cell, newText) {
+      var el = cell.getElement();
+      var span = el.querySelector(".ksi-statement-text");
+      if (!span) return;
+      span.classList.add("ksi-statement-fade-out");
+      setTimeout(function () {
+        span.textContent = newText;
+        span.classList.remove("ksi-statement-fade-out");
+        span.classList.add("ksi-statement-fade-in");
+        setTimeout(function () {
+          span.classList.remove("ksi-statement-fade-in");
+        }, 200);
+      }, 150);
+    }
+
     // Tabulator column definitions.
     var columns = [
       {
@@ -215,7 +249,8 @@
         widthGrow: 3,
         formatter: function (cell) {
           var row = cell.getRow().getData();
-          var text = resolveStatement(row, selectedClass);
+          var ec = effectiveClass(row);
+          var text = resolveStatement(row, ec);
           var span = document.createElement("span");
           span.className = "ksi-statement-text";
           span.textContent = text;
@@ -230,14 +265,29 @@
         headerSort: false,
         formatter: function (cell) {
           var cls = cell.getValue() || [];
+          var row = cell.getRow().getData();
+          var rowHasVariants = hasVariants(row);
+          var ec = effectiveClass(row);
           var container = document.createElement("span");
           container.className = "ksi-class-badges";
+
           for (var i = 0; i < cls.length; i++) {
             var badge = document.createElement("span");
             badge.className = "ksi-class-badge";
-            if (selectedClass !== "all" && cls[i] === selectedClass) {
+
+            if (!rowHasVariants) {
+              // No variants: all badges are active (universal statement).
               badge.className += " ksi-class-badge--active";
+            } else {
+              // Has variants: highlight the effective class, make clickable.
+              if (ec !== "all" && cls[i] === ec) {
+                badge.className += " ksi-class-badge--active";
+              }
+              badge.className += " ksi-class-badge--clickable";
+              badge.setAttribute("data-class", cls[i]);
+              badge.setAttribute("data-entity-id", row.entity_id);
             }
+
             badge.textContent = CLASS_LABELS[cls[i]] || cls[i];
             container.appendChild(badge);
           }
@@ -338,6 +388,43 @@
     });
 
     // -------------------------------------------------------------------
+    // Per-row class badge click handler
+    // -------------------------------------------------------------------
+
+    mount.addEventListener("click", function (evt) {
+      var badge = evt.target.closest(".ksi-class-badge--clickable");
+      if (!badge) return;
+
+      var clickedClass = badge.getAttribute("data-class");
+      var entityId = badge.getAttribute("data-entity-id");
+      if (!clickedClass || !entityId) return;
+
+      // Set the per-row override.
+      rowClassOverrides[entityId] = clickedClass;
+
+      // Find the Tabulator row and update the Statement + Classes cells.
+      var tabulatorRows = table.getRows("active");
+      for (var i = 0; i < tabulatorRows.length; i++) {
+        var rd = tabulatorRows[i].getData();
+        if (rd.entity_id === entityId) {
+          // Re-render the Classes cell to update badge highlighting.
+          tabulatorRows[i].reformat();
+
+          // Fade-swap the statement text.
+          var cells = tabulatorRows[i].getCells();
+          for (var j = 0; j < cells.length; j++) {
+            if (cells[j].getField() === "description") {
+              var newText = resolveStatement(rd, clickedClass);
+              fadeSwapStatement(cells[j], newText);
+              break;
+            }
+          }
+          break;
+        }
+      }
+    });
+
+    // -------------------------------------------------------------------
     // Filtering
     // -------------------------------------------------------------------
 
@@ -416,6 +503,8 @@
     if (classSelect) {
       classSelect.addEventListener("change", function () {
         selectedClass = classSelect.value;
+        // Clear per-row overrides when global class changes.
+        rowClassOverrides = {};
         try {
           localStorage.setItem(STORAGE_KEY, selectedClass);
         } catch (e) {

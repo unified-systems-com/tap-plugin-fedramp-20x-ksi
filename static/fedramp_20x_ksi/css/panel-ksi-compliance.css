@@ -106,9 +106,20 @@
   text-decoration: underline;
 }
 
-/* Statement text */
+/* Statement text with fade transition */
 .ksi-statement-text {
   line-height: 1.45;
+  transition: opacity 0.15s ease;
+}
+
+.ksi-statement-fade-out {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.ksi-statement-fade-in {
+  opacity: 1;
+  transition: opacity 0.2s ease;
 }
 
 /* Class badges */
@@ -133,6 +144,15 @@
 
 .ksi-class-badge--active {
   background: #4f46e5;
+  color: #fff;
+}
+
+.ksi-class-badge--clickable {
+  cursor: pointer;
+}
+
+.ksi-class-badge--clickable:hover {
+  background: #6366f1;
   color: #fff;
 }
 
