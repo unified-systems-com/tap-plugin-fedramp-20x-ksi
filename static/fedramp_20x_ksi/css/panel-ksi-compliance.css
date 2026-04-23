@@ -203,9 +203,6 @@
   cursor: pointer;
 }
 
-.tap-panel--ksi-compliance .tabulator-row:not(.tabulator-group):hover {
-  background: rgba(30, 58, 95, 0.04) !important;
-}
 
 .tap-panel--ksi-compliance .tabulator-cell {
   padding: 0.5rem 0.625rem;
