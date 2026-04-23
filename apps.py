@@ -9,8 +9,14 @@ class Fedramp20xKsiConfig(TapPluginConfig):
         from plugins.fedramp_20x_ksi.panels.compliance_view import (
             KsiCompliancePanelType,
         )
+        from plugins.fedramp_20x_ksi.panels.indicator_profile import (
+            KsiIndicatorProfilePanelType,
+        )
         from tap_web.registry import panel_type_registry
 
         panel_type_registry.register(
             "fedramp-20x-ksi-compliance", KsiCompliancePanelType
+        )
+        panel_type_registry.register(
+            "fedramp-20x-ksi-indicator-profile", KsiIndicatorProfilePanelType
         )

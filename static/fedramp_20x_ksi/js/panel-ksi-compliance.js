@@ -232,7 +232,7 @@
         formatter: function (cell) {
           var row = cell.getRow().getData();
           var a = document.createElement("a");
-          a.href = "/object/ksi_indicator/" + row.url_id + "/";
+          a.href = "/fedramp-ksi/indicator?entity_id=" + row.entity_id;
           a.textContent = row.code;
           a.className = "ksi-code-link";
           return a;
