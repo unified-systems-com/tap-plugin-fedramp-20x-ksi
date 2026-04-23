@@ -1,0 +1,7 @@
+{
+  "$description": "Tracks the last-integrated upstream SHA and per-wave metadata. Written exclusively by refresh.py; do not hand-edit.",
+  "last_integrated_sha": null,
+  "last_integrated_date": null,
+  "last_integrated_file_sha256": null,
+  "waves": []
+}

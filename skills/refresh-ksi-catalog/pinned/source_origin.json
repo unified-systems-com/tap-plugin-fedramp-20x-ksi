@@ -1,0 +1,23 @@
+{
+  "$schema_description": "Pinned expectations about the upstream source repo. Changes to any field in this file must be PR-reviewed by a human. refresh.py aborts with ORIGIN_MISMATCH if runtime values disagree.",
+  "submodule_path": "skills/refresh-ksi-catalog/upstream",
+  "expected_url": "https://github.com/FedRAMP/rules.git",
+  "expected_url_aliases": [
+    "https://github.com/FedRAMP/rules",
+    "git@github.com:FedRAMP/rules.git"
+  ],
+  "expected_branch": "main",
+  "source_json_path": "fedramp-consolidated-rules.json",
+  "source_schema_path": "schemas/fedramp-consolidated-rules.schema.json",
+  "expected_committer_email_domains": [
+    "fedramp.gov",
+    "gsa.gov"
+  ],
+  "static_committer_allowlist": [
+    "pete-gov",
+    "dan-fedramp",
+    "emu-gov",
+    "paulagosta"
+  ],
+  "dynamic_committer_source": "https://api.github.com/orgs/FedRAMP/members"
+}

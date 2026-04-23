@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:tap:fedramp_20x_ksi:wave:v0",
+  "title": "FedRAMP 20x KSI Wave Description Payload",
+  "description": "Shape of description_json.data for a batch emitted by refresh-ksi-catalog. Stored under description_json where format == 'tap.fedramp_20x_ksi.wave-v0'. After grift import the tap_grid importer adds its own metadata under the reserved key _tap_grift_import inside data; that key is not covered by this schema.",
+  "type": "object",
+  "required": ["schema_version", "source", "commits", "wave", "changes", "safety"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "v0"
+    },
+    "source": {
+      "type": "object",
+      "required": ["repo", "file", "file_sha256", "rules_version", "rules_last_updated", "commit_from", "commit_to", "commit_to_date"],
+      "additionalProperties": false,
+      "properties": {
+        "repo": {"type": "string"},
+        "file": {"type": "string"},
+        "file_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "rules_version": {"type": "string"},
+        "rules_last_updated": {"type": "string"},
+        "commit_from": {
+          "oneOf": [
+            {"type": "null"},
+            {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+          ]
+        },
+        "commit_to": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "commit_from_date": {
+          "oneOf": [
+            {"type": "null"},
+            {"type": "string", "format": "date-time"}
+          ]
+        },
+        "commit_to_date": {"type": "string", "format": "date-time"}
+      }
+    },
+    "commits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["sha", "date", "author_name", "author_email", "signed", "verified", "message_first_line"],
+        "additionalProperties": false,
+        "properties": {
+          "sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+          "date": {"type": "string", "format": "date-time"},
+          "author_name": {"type": "string"},
+          "author_email": {"type": "string"},
+          "signed": {"type": "boolean"},
+          "verified": {"type": "boolean"},
+          "message_first_line": {"type": "string", "maxLength": 200}
+        }
+      }
+    },
+    "wave": {
+      "type": "object",
+      "required": ["index", "filename", "authored_at", "authored_by", "is_initial"],
+      "additionalProperties": false,
+      "properties": {
+        "index": {"type": "integer", "minimum": 1},
+        "filename": {"type": "string"},
+        "authored_at": {"type": "string", "format": "date-time"},
+        "authored_by": {"type": "string"},
+        "is_initial": {"type": "boolean"}
+      }
+    },
+    "changes": {
+      "type": "object",
+      "required": [
+        "themes_added",
+        "themes_modified",
+        "themes_removed",
+        "indicators_added",
+        "indicators_modified",
+        "indicators_deprecated",
+        "catalog_size_before",
+        "catalog_size_after",
+        "deletion_ratio"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "themes_added": {"type": "integer", "minimum": 0},
+        "themes_modified": {"type": "integer", "minimum": 0},
+        "themes_removed": {"type": "integer", "minimum": 0},
+        "indicators_added": {"type": "integer", "minimum": 0},
+        "indicators_modified": {"type": "integer", "minimum": 0},
+        "indicators_deprecated": {"type": "integer", "minimum": 0},
+        "catalog_size_before": {"type": "integer", "minimum": 0},
+        "catalog_size_after": {"type": "integer", "minimum": 0},
+        "deletion_ratio": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "safety": {
+      "type": "object",
+      "required": ["review_required", "flags"],
+      "additionalProperties": false,
+      "properties": {
+        "review_required": {"type": "boolean"},
+        "flags": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["severity", "code", "detail"],
+            "additionalProperties": false,
+            "properties": {
+              "severity": {"type": "string", "enum": ["info", "warn", "block"]},
+              "code": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"},
+              "detail": {"type": "string"}
+            }
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": {
+    "description": "_tap_grift_import is added by the importer post-import and is not covered by this emit-time schema.",
+    "type": "object"
+  }
+}
