@@ -103,6 +103,25 @@
   // -------------------------------------------------------------------------
 
   /**
+   * Render statement text into a container element, replacing **Optional:**
+   * with a styled tag.
+   */
+  function renderStatementInto(container, text) {
+    container.textContent = "";
+    if (text.indexOf("**Optional:**") === 0) {
+      var tag = document.createElement("span");
+      tag.className = "ksi-optional-tag";
+      tag.textContent = "Optional";
+      container.appendChild(tag);
+      container.appendChild(
+        document.createTextNode(" " + text.replace("**Optional:** ", ""))
+      );
+    } else {
+      container.textContent = text;
+    }
+  }
+
+  /**
    * Check whether a row has class-specific statement variants.
    */
   function hasVariants(row) {
@@ -214,7 +233,7 @@
       if (!span) return;
       span.classList.add("ksi-statement-fade-out");
       setTimeout(function () {
-        span.textContent = newText;
+        renderStatementInto(span, newText);
         span.classList.remove("ksi-statement-fade-out");
         span.classList.add("ksi-statement-fade-in");
         setTimeout(function () {
@@ -253,7 +272,7 @@
           var text = resolveStatement(row, ec);
           var span = document.createElement("span");
           span.className = "ksi-statement-text";
-          span.textContent = text;
+          renderStatementInto(span, text);
           return span;
         },
       },
