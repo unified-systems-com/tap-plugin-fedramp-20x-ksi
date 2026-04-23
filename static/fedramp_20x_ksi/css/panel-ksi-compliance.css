@@ -203,6 +203,14 @@
   cursor: pointer;
 }
 
+.tap-panel--ksi-compliance .tabulator-row:not(.tabulator-group):hover {
+  background: inherit !important;
+}
+
+.tap-panel--ksi-compliance .tabulator-row:not(.tabulator-group):hover .ksi-code-link {
+  font-weight: 700;
+}
+
 
 .tap-panel--ksi-compliance .tabulator-cell {
   padding: 0.5rem 0.625rem;
