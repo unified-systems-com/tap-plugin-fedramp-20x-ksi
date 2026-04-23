@@ -208,6 +208,9 @@
   padding: 0.5rem 0.625rem;
   white-space: normal;
   word-wrap: break-word;
+}
+
+.tap-panel--ksi-compliance .tabulator-cell:not([tabulator-field="theme_sort_order"]) {
   display: inline-flex !important;
   align-items: center;
 }
