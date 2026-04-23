@@ -203,8 +203,12 @@
   cursor: pointer;
 }
 
-.tap-panel--ksi-compliance .tabulator-row:not(.tabulator-group):hover {
-  background: inherit !important;
+.tap-panel--ksi-compliance .tabulator-row:not(.tabulator-group).tabulator-row-even:hover {
+  background: #efefef !important;
+}
+
+.tap-panel--ksi-compliance .tabulator-row:not(.tabulator-group).tabulator-row-odd:hover {
+  background: #fff !important;
 }
 
 .tap-panel--ksi-compliance .tabulator-row:not(.tabulator-group):hover .ksi-code-link {
