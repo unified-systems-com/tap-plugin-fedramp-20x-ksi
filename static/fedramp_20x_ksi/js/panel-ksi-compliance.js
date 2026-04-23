@@ -463,6 +463,26 @@
 
     var searchTerm = "";
 
+    function hideEmptyGroups() {
+      var groupEls = mount.querySelectorAll(".tabulator-group");
+      groupEls.forEach(function (groupEl) {
+        // Walk forward from the group header and count visible data rows
+        // until the next group header or end of table.
+        var visibleCount = 0;
+        var sibling = groupEl.nextElementSibling;
+        while (sibling && !sibling.classList.contains("tabulator-group")) {
+          if (
+            sibling.classList.contains("tabulator-row") &&
+            sibling.style.display !== "none"
+          ) {
+            visibleCount++;
+          }
+          sibling = sibling.nextElementSibling;
+        }
+        groupEl.style.display = visibleCount === 0 ? "none" : "";
+      });
+    }
+
     function applyFilters() {
       table.clearFilter();
 
@@ -499,6 +519,9 @@
       // Redraw so column formatters pick up the new selectedClass
       // (Statement resolves class-variant text, Classes highlights active badge).
       table.redraw(true);
+
+      // Hide group headers whose child rows are all filtered out.
+      hideEmptyGroups();
 
       // Update result count.
       updateCount();
