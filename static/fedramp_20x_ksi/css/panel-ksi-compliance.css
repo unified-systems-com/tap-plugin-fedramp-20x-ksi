@@ -63,6 +63,7 @@
   order: 99;
   margin-left: auto;
   flex-shrink: 0;
+  padding-right: 0.25rem;
 }
 
 .tap-panel--ksi-compliance .tabulator-group .tabulator-arrow {
@@ -74,6 +75,8 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
   color: #fff !important;
 }
 

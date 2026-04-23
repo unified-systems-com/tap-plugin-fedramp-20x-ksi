@@ -376,6 +376,10 @@
         });
       }
 
+      // Redraw so column formatters pick up the new selectedClass
+      // (Statement resolves class-variant text, Classes highlights active badge).
+      table.redraw(true);
+
       // Update result count.
       updateCount();
     }
