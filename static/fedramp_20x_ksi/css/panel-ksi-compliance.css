@@ -197,10 +197,17 @@
 /* Tabulator overrides for this panel */
 .tap-panel--ksi-compliance .tabulator-row {
   min-height: auto;
+  cursor: pointer;
+}
+
+.tap-panel--ksi-compliance .tabulator-row:hover {
+  background: rgba(30, 58, 95, 0.04) !important;
 }
 
 .tap-panel--ksi-compliance .tabulator-cell {
   padding: 0.5rem 0.625rem;
   white-space: normal;
   word-wrap: break-word;
+  display: inline-flex !important;
+  align-items: center;
 }

@@ -407,6 +407,20 @@
     });
 
     // -------------------------------------------------------------------
+    // Row click → navigate to indicator profile
+    // -------------------------------------------------------------------
+
+    table.on("rowClick", function (e, row) {
+      // Don't navigate if clicking a class badge or a link.
+      if (e.target.closest(".ksi-class-badge") || e.target.closest("a")) return;
+      var data = row.getData();
+      if (data.entity_id) {
+        window.location.href =
+          "/fedramp-ksi/indicator?entity_id=" + data.entity_id;
+      }
+    });
+
+    // -------------------------------------------------------------------
     // Per-row class badge click handler
     // -------------------------------------------------------------------
 
