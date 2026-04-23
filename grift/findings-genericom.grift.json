@@ -1,0 +1,380 @@
+{
+  "metadata": {
+    "grift_version": "0"
+  },
+  "_reserved": {},
+  "batches": [
+    {
+      "batch_entity": {
+        "entity_id": "0197fed0-0000-7000-8000-000000000100",
+        "entity_type": "batch",
+        "name": "fedramp_20x_ksi findings-genericom v0.1.0",
+        "dimensions": {}
+      },
+      "batch_node": {
+        "source": "plugins.fedramp_20x_ksi",
+        "name": "fedramp_20x_ksi findings-genericom v0.1.0",
+        "description": "Seeds a handful of compliance findings against Genericom demo assets, plus one active exception. Used to exercise the alert-count status-badge population via multi-hop gryphon queries. Cross-plugin seed dependency: references Genericom entity IDs — acceptable for demo, not the pattern for production ingestion."
+      },
+      "nodes": [
+        {
+          "entity": {
+            "entity_id": "0197fed0-0000-7000-8000-000f00000001",
+            "entity_type": "finding",
+            "name": "prod-web-a: no passwordless SSH authentication",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "node": {
+            "name": "prod-web-a: no passwordless SSH authentication",
+            "description": "The EC2 instance permits password-based SSH auth; passwordless/certificate-based access is not enforced.",
+            "status": "open"
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "0197fed0-0000-7000-8000-000f00000002",
+            "entity_type": "finding",
+            "name": "prod-web-c: no passwordless SSH authentication",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "node": {
+            "name": "prod-web-c: no passwordless SSH authentication",
+            "description": "The EC2 instance permits password-based SSH auth; passwordless/certificate-based access is not enforced.",
+            "status": "open"
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "0197fed0-0000-7000-8000-000f00000003",
+            "entity_type": "finding",
+            "name": "prod-web-a: log access not centrally authorized",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "node": {
+            "name": "prod-web-a: log access not centrally authorized",
+            "description": "System logs are readable by local root without central access-control mediation.",
+            "status": "open"
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "0197fed0-0000-7000-8000-000f00000004",
+            "entity_type": "finding",
+            "name": "prod-postgres: intended state drift",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "node": {
+            "name": "prod-postgres: intended state drift",
+            "description": "Running parameter_group deviates from the approved baseline; pg_stat_statements and logging settings out of alignment.",
+            "status": "open"
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "0197fed0-0000-7000-8000-000f00000005",
+            "entity_type": "finding",
+            "name": "prod-redis: unauthenticated access",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "node": {
+            "name": "prod-redis: unauthenticated access",
+            "description": "Redis instance accepts connections without requiring AUTH. Accepted risk: covered by active exception during cutover.",
+            "status": "open"
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "0197fed0-0000-7000-8000-000f00000006",
+            "entity_type": "finding",
+            "name": "prod-web-alb: supply-chain monitoring gap",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "node": {
+            "name": "prod-web-alb: supply-chain monitoring gap",
+            "description": "ALB-attached TLS certificate issuer is not enrolled in the supply-chain risk monitoring pipeline.",
+            "status": "open"
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "0197fed0-0000-7000-8000-000f00000007",
+            "entity_type": "finding",
+            "name": "prod-web-a: recent configuration change observed",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "node": {
+            "name": "prod-web-a: recent configuration change observed",
+            "description": "Automated drift detector noted a configuration delta in the last 24 hours. Informational — not yet classified as a deficiency.",
+            "status": "open"
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "0197fed0-0000-7000-8000-000f00000008",
+            "entity_type": "finding",
+            "name": "prod-postgres: prior log-evaluation gap (remediated)",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "node": {
+            "name": "prod-postgres: prior log-evaluation gap (remediated)",
+            "description": "Historical finding: log evaluation pipeline was missing a stage. Remediated last cycle.",
+            "status": "resolved"
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "0197fed0-0000-7000-8000-000e00000001",
+            "entity_type": "exception",
+            "name": "Redis auth deferred to next release cutover",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "node": {
+            "name": "Redis auth deferred to next release cutover",
+            "description": "AUTH enforcement on prod-redis is deferred to the 26.Q2 cutover. Accepted risk: cache contains session tokens only, accessible only from within the VPC security group. Signed off by security lead.",
+            "status": "active"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "entity": {
+            "entity_id": "0197fed0-0000-7000-8000-000fe0000001",
+            "entity_type": "edge",
+            "name": "prod-web-a HAS_FINDING passwordless-ssh",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "edge": {
+            "from_entity_id": "01965b01-4000-7000-8000-000500000003",
+            "to_entity_id": "0197fed0-0000-7000-8000-000f00000001",
+            "edge_type": "HAS_FINDING",
+            "properties": {}
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "0197fed0-0000-7000-8000-000fe0000002",
+            "entity_type": "edge",
+            "name": "finding-1 RELATED_INDICATOR KSI-IAM-APM",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "edge": {
+            "from_entity_id": "0197fed0-0000-7000-8000-000f00000001",
+            "to_entity_id": "0a3317fd-2586-507e-86ce-2630056c5786",
+            "edge_type": "RELATED_INDICATOR",
+            "properties": {"relationship_type": "violation"}
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "0197fed0-0000-7000-8000-000fe0000003",
+            "entity_type": "edge",
+            "name": "prod-web-c HAS_FINDING passwordless-ssh",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "edge": {
+            "from_entity_id": "01965b01-4000-7000-8000-000500000004",
+            "to_entity_id": "0197fed0-0000-7000-8000-000f00000002",
+            "edge_type": "HAS_FINDING",
+            "properties": {}
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "0197fed0-0000-7000-8000-000fe0000004",
+            "entity_type": "edge",
+            "name": "finding-2 RELATED_INDICATOR KSI-IAM-APM",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "edge": {
+            "from_entity_id": "0197fed0-0000-7000-8000-000f00000002",
+            "to_entity_id": "0a3317fd-2586-507e-86ce-2630056c5786",
+            "edge_type": "RELATED_INDICATOR",
+            "properties": {"relationship_type": "violation"}
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "0197fed0-0000-7000-8000-000fe0000005",
+            "entity_type": "edge",
+            "name": "prod-web-a HAS_FINDING log-access",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "edge": {
+            "from_entity_id": "01965b01-4000-7000-8000-000500000003",
+            "to_entity_id": "0197fed0-0000-7000-8000-000f00000003",
+            "edge_type": "HAS_FINDING",
+            "properties": {}
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "0197fed0-0000-7000-8000-000fe0000006",
+            "entity_type": "edge",
+            "name": "finding-3 RELATED_INDICATOR KSI-MLA-ALA",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "edge": {
+            "from_entity_id": "0197fed0-0000-7000-8000-000f00000003",
+            "to_entity_id": "54792ee3-9e93-5a84-a3f6-52764ce71c6a",
+            "edge_type": "RELATED_INDICATOR",
+            "properties": {"relationship_type": "violation"}
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "0197fed0-0000-7000-8000-000fe0000007",
+            "entity_type": "edge",
+            "name": "prod-postgres HAS_FINDING state-drift",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "edge": {
+            "from_entity_id": "01965b01-4000-7000-8000-000600000001",
+            "to_entity_id": "0197fed0-0000-7000-8000-000f00000004",
+            "edge_type": "HAS_FINDING",
+            "properties": {}
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "0197fed0-0000-7000-8000-000fe0000008",
+            "entity_type": "edge",
+            "name": "finding-4 RELATED_INDICATOR KSI-CNA-EIS",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "edge": {
+            "from_entity_id": "0197fed0-0000-7000-8000-000f00000004",
+            "to_entity_id": "aa31709d-de45-5667-a637-ab12b784e19e",
+            "edge_type": "RELATED_INDICATOR",
+            "properties": {"relationship_type": "violation"}
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "0197fed0-0000-7000-8000-000fe0000009",
+            "entity_type": "edge",
+            "name": "prod-redis HAS_FINDING unauthenticated",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "edge": {
+            "from_entity_id": "01965b01-4000-7000-8000-000800000001",
+            "to_entity_id": "0197fed0-0000-7000-8000-000f00000005",
+            "edge_type": "HAS_FINDING",
+            "properties": {}
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "0197fed0-0000-7000-8000-000fe000000a",
+            "entity_type": "edge",
+            "name": "finding-5 RELATED_INDICATOR KSI-IAM-AAM",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "edge": {
+            "from_entity_id": "0197fed0-0000-7000-8000-000f00000005",
+            "to_entity_id": "9683950e-50a8-573e-aa4c-a65772cff3f2",
+            "edge_type": "RELATED_INDICATOR",
+            "properties": {"relationship_type": "violation"}
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "0197fed0-0000-7000-8000-000fe000000b",
+            "entity_type": "edge",
+            "name": "prod-web-alb HAS_FINDING supply-chain-gap",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "edge": {
+            "from_entity_id": "01965b01-4000-7000-8000-000500000001",
+            "to_entity_id": "0197fed0-0000-7000-8000-000f00000006",
+            "edge_type": "HAS_FINDING",
+            "properties": {}
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "0197fed0-0000-7000-8000-000fe000000c",
+            "entity_type": "edge",
+            "name": "finding-6 RELATED_INDICATOR KSI-SCR-MON",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "edge": {
+            "from_entity_id": "0197fed0-0000-7000-8000-000f00000006",
+            "to_entity_id": "63d04011-a9fd-5eaa-881c-8dc331d20f44",
+            "edge_type": "RELATED_INDICATOR",
+            "properties": {"relationship_type": "violation"}
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "0197fed0-0000-7000-8000-000fe000000d",
+            "entity_type": "edge",
+            "name": "prod-web-a HAS_FINDING config-change",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "edge": {
+            "from_entity_id": "01965b01-4000-7000-8000-000500000003",
+            "to_entity_id": "0197fed0-0000-7000-8000-000f00000007",
+            "edge_type": "HAS_FINDING",
+            "properties": {}
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "0197fed0-0000-7000-8000-000fe000000e",
+            "entity_type": "edge",
+            "name": "finding-7 RELATED_INDICATOR KSI-CNA-DFP",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "edge": {
+            "from_entity_id": "0197fed0-0000-7000-8000-000f00000007",
+            "to_entity_id": "19edad6e-918d-5a92-b12c-5caf0e748b03",
+            "edge_type": "RELATED_INDICATOR",
+            "properties": {"relationship_type": "informational"}
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "0197fed0-0000-7000-8000-000fe000000f",
+            "entity_type": "edge",
+            "name": "prod-postgres HAS_FINDING prior-log-gap",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "edge": {
+            "from_entity_id": "01965b01-4000-7000-8000-000600000001",
+            "to_entity_id": "0197fed0-0000-7000-8000-000f00000008",
+            "edge_type": "HAS_FINDING",
+            "properties": {}
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "0197fed0-0000-7000-8000-000fe0000010",
+            "entity_type": "edge",
+            "name": "finding-8 RELATED_INDICATOR KSI-MLA-EVC",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "edge": {
+            "from_entity_id": "0197fed0-0000-7000-8000-000f00000008",
+            "to_entity_id": "6492702b-98cc-5163-bee2-6b928b38dd8a",
+            "edge_type": "RELATED_INDICATOR",
+            "properties": {"relationship_type": "violation"}
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "0197fed0-0000-7000-8000-000fe0000011",
+            "entity_type": "edge",
+            "name": "exception-1 COVERS_FINDING prod-redis-unauth",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "edge": {
+            "from_entity_id": "0197fed0-0000-7000-8000-000e00000001",
+            "to_entity_id": "0197fed0-0000-7000-8000-000f00000005",
+            "edge_type": "COVERS_FINDING",
+            "properties": {}
+          }
+        }
+      ]
+    }
+  ]
+}

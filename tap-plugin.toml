@@ -7,12 +7,18 @@ description = "FedRAMP 20x Key Security Indicators (KSI) framework catalog — t
 [models]
 ksi_theme = "plugins.fedramp_20x_ksi.models.ksi_theme.KsiTheme"
 ksi_indicator = "plugins.fedramp_20x_ksi.models.ksi_indicator.KsiIndicator"
+finding = "plugins.fedramp_20x_ksi.models.finding.Finding"
+exception = "plugins.fedramp_20x_ksi.models.exception.ComplianceException"
 
 [edges]
 CONTAINS_INDICATOR = "edges/CONTAINS_INDICATOR.edge.json"
+HAS_FINDING = "edges/HAS_FINDING.edge.json"
+RELATED_INDICATOR = "edges/RELATED_INDICATOR.edge.json"
+COVERS_FINDING = "edges/COVERS_FINDING.edge.json"
 
 [grift]
 dimension = "grift/dimension.grift.json"
 ksi_initial = "grift/ksi-initial-2026-04-23.grift.json"
 ksi_compliance_page = "grift/ksi-compliance-page.grift.json"
 ksi_indicator_profile_page = "grift/ksi-indicator-profile-page.grift.json"
+findings_genericom = "grift/findings-genericom.grift.json"
