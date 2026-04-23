@@ -97,7 +97,8 @@
             "name": "Cybersecurity Education",
             "short_name": "CED",
             "web_name": "cybersecurity-education",
-            "description": ""
+            "description": "",
+            "sort_order": 100
           }
         },
         {
@@ -114,7 +115,8 @@
             "name": "Change Management",
             "short_name": "CMT",
             "web_name": "change-management",
-            "description": ""
+            "description": "",
+            "sort_order": 60
           }
         },
         {
@@ -131,7 +133,8 @@
             "name": "Cloud Native Architecture",
             "short_name": "CNA",
             "web_name": "cloud-native-architecture",
-            "description": ""
+            "description": "",
+            "sort_order": 30
           }
         },
         {
@@ -148,7 +151,8 @@
             "name": "Identity and Access Management",
             "short_name": "IAM",
             "web_name": "identity-and-access-management",
-            "description": ""
+            "description": "",
+            "sort_order": 20
           }
         },
         {
@@ -165,7 +169,8 @@
             "name": "Incident Response",
             "short_name": "INR",
             "web_name": "incident-response",
-            "description": ""
+            "description": "",
+            "sort_order": 80
           }
         },
         {
@@ -182,7 +187,8 @@
             "name": "Monitoring, Logging, and Auditing",
             "short_name": "MLA",
             "web_name": "monitoring-logging-and-auditing",
-            "description": ""
+            "description": "",
+            "sort_order": 50
           }
         },
         {
@@ -199,7 +205,8 @@
             "name": "Policy and Inventory",
             "short_name": "PIY",
             "web_name": "policy-and-inventory",
-            "description": ""
+            "description": "",
+            "sort_order": 10
           }
         },
         {
@@ -216,7 +223,8 @@
             "name": "Recovery Planning",
             "short_name": "RPL",
             "web_name": "recovery-planning",
-            "description": ""
+            "description": "",
+            "sort_order": 90
           }
         },
         {
@@ -233,7 +241,8 @@
             "name": "Supply Chain Risk",
             "short_name": "SCR",
             "web_name": "supply-chain-risk",
-            "description": ""
+            "description": "",
+            "sort_order": 70
           }
         },
         {
@@ -250,7 +259,8 @@
             "name": "Service Configuration",
             "short_name": "SVC",
             "web_name": "service-configuration",
-            "description": ""
+            "description": "",
+            "sort_order": 40
           }
         },
         {

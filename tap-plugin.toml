@@ -13,3 +13,5 @@ CONTAINS_INDICATOR = "edges/CONTAINS_INDICATOR.edge.json"
 
 [grift]
 dimension = "grift/dimension.grift.json"
+ksi_initial = "grift/ksi-initial-2026-04-23.grift.json"
+ksi_compliance_page = "grift/ksi-compliance-page.grift.json"

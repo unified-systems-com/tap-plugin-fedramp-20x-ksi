@@ -1,0 +1,450 @@
+/**
+ * panel-ksi-compliance.js — FedRAMP 20x KSI Compliance View browser glue.
+ *
+ * Reads a raw gryphon subgraph envelope ({nodes, edges}) from an embedded
+ * JSON payload, joins indicators to themes via CONTAINS_INDICATOR edges,
+ * and renders a grouped Tabulator table with client-side keyword search
+ * and certification class filtering.
+ */
+
+(function () {
+  "use strict";
+
+  var STORAGE_KEY = "tap-ksi-class-selection";
+  var DEFAULT_CLASS = "c";
+
+  var CLASS_LABELS = {
+    a: "A",
+    b: "B",
+    c: "C",
+    d: "D",
+  };
+
+  // -------------------------------------------------------------------------
+  // Subgraph processing
+  // -------------------------------------------------------------------------
+
+  /**
+   * Transform a raw subgraph envelope into a flat array of indicator row objects,
+   * each enriched with parent theme metadata.
+   */
+  function buildRows(subgraph) {
+    var nodes = subgraph.nodes || [];
+    var edges = subgraph.edges || [];
+
+    // Separate themes and indicators by entity_type.
+    var themes = {};
+    var indicators = [];
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i];
+      var etype = n.entity ? n.entity.entity_type : "";
+      if (etype === "ksi_theme") {
+        themes[n.entity.entity_id] = n;
+      } else if (etype === "ksi_indicator") {
+        indicators.push(n);
+      }
+    }
+
+    // Build indicator-to-theme mapping from CONTAINS_INDICATOR edges.
+    var indicatorToTheme = {};
+    for (var j = 0; j < edges.length; j++) {
+      var e = edges[j];
+      var edgeData = e.edge || e;
+      if (edgeData.edge_type === "CONTAINS_INDICATOR") {
+        indicatorToTheme[edgeData.to_entity_id] = edgeData.from_entity_id;
+      }
+    }
+
+    // Build flat row array.
+    var rows = [];
+    for (var k = 0; k < indicators.length; k++) {
+      var ind = indicators[k];
+      var indNode = ind.node || {};
+      var indEntity = ind.entity || {};
+      var themeId = indicatorToTheme[indEntity.entity_id] || "";
+      var theme = themes[themeId];
+      var themeNode = theme ? (theme.node || {}) : {};
+      var themeEntity = theme ? (theme.entity || {}) : {};
+
+      rows.push({
+        // Indicator fields
+        entity_id: indEntity.entity_id || "",
+        code: indNode.code || "",
+        name: indNode.name || "",
+        description: indNode.description || "",
+        classes: indNode.classes || [],
+        class_variants: indNode.class_variants || null,
+        controls: indNode.controls || [],
+        status: indNode.status || "",
+        terms: indNode.terms || [],
+        url_id: ind.url_id || "",
+        // Theme fields
+        theme_code: themeNode.code || "",
+        theme_name: themeEntity.name || themeNode.name || "",
+        theme_short_name: themeNode.short_name || "",
+        theme_sort_order: themeNode.sort_order || 0,
+        theme_icon_url: theme ? (theme.icon_url || "") : "",
+      });
+    }
+
+    // Sort by theme order, then indicator code.
+    rows.sort(function (a, b) {
+      if (a.theme_sort_order !== b.theme_sort_order) {
+        return a.theme_sort_order - b.theme_sort_order;
+      }
+      return a.code < b.code ? -1 : a.code > b.code ? 1 : 0;
+    });
+
+    return rows;
+  }
+
+  // -------------------------------------------------------------------------
+  // Statement resolution
+  // -------------------------------------------------------------------------
+
+  /**
+   * Resolve the display statement for an indicator given the selected class.
+   * If selectedClass is "all" or the indicator has no class_variants, return
+   * the direct description. Otherwise return the class-specific statement.
+   */
+  function resolveStatement(row, selectedClass) {
+    if (
+      selectedClass !== "all" &&
+      row.class_variants &&
+      row.class_variants[selectedClass]
+    ) {
+      return row.class_variants[selectedClass].statement || "";
+    }
+    return row.description || "";
+  }
+
+  /**
+   * Build a searchable text blob from all indicator text fields.
+   */
+  function buildSearchBlob(row) {
+    var parts = [
+      row.code,
+      row.name,
+      row.description,
+      (row.controls || []).join(" "),
+      (row.terms || []).join(" "),
+    ];
+    // Include all class_variant statements.
+    if (row.class_variants) {
+      var keys = Object.keys(row.class_variants);
+      for (var i = 0; i < keys.length; i++) {
+        var v = row.class_variants[keys[i]];
+        if (v && v.statement) {
+          parts.push(v.statement);
+        }
+      }
+    }
+    return parts.join(" ").toLowerCase();
+  }
+
+  // -------------------------------------------------------------------------
+  // Panel initialization
+  // -------------------------------------------------------------------------
+
+  function initPanel(mount) {
+    var panelId = mount.getAttribute("data-ksi-panel-id");
+    var iconsBase = mount.getAttribute("data-static-icons") || "";
+
+    // Read embedded JSON payload.
+    var dataEl = document.getElementById("ksi-data-" + panelId);
+    if (!dataEl) return;
+    var subgraph;
+    try {
+      subgraph = JSON.parse(dataEl.textContent);
+    } catch (e) {
+      return;
+    }
+
+    var rows = buildRows(subgraph);
+    var totalCount = rows.length;
+
+    // Pre-compute search blobs.
+    for (var i = 0; i < rows.length; i++) {
+      rows[i]._searchBlob = buildSearchBlob(rows[i]);
+    }
+
+    // Controls.
+    var searchInput = document.getElementById("ksi-search-" + panelId);
+    var classSelect = document.getElementById("ksi-class-select-" + panelId);
+    var countSpan = document.getElementById("ksi-count-" + panelId);
+
+    // Sticky class selection from localStorage.
+    var savedClass = DEFAULT_CLASS;
+    try {
+      var stored = localStorage.getItem(STORAGE_KEY);
+      if (stored && (stored === "all" || CLASS_LABELS[stored])) {
+        savedClass = stored;
+      }
+    } catch (e) {
+      // localStorage unavailable.
+    }
+    if (classSelect) {
+      classSelect.value = savedClass;
+    }
+
+    var selectedClass = savedClass;
+
+    // Tabulator column definitions.
+    var columns = [
+      {
+        title: "Code",
+        field: "code",
+        width: 140,
+        formatter: function (cell) {
+          var row = cell.getRow().getData();
+          var a = document.createElement("a");
+          a.href = "/object/ksi_indicator/" + row.url_id + "/";
+          a.textContent = row.code;
+          a.className = "ksi-code-link";
+          return a;
+        },
+      },
+      {
+        title: "Name",
+        field: "name",
+        widthGrow: 1,
+      },
+      {
+        title: "Statement",
+        field: "description",
+        widthGrow: 3,
+        formatter: function (cell) {
+          var row = cell.getRow().getData();
+          var text = resolveStatement(row, selectedClass);
+          var span = document.createElement("span");
+          span.className = "ksi-statement-text";
+          span.textContent = text;
+          return span;
+        },
+      },
+      {
+        title: "Classes",
+        field: "classes",
+        width: 120,
+        hozAlign: "center",
+        headerSort: false,
+        formatter: function (cell) {
+          var cls = cell.getValue() || [];
+          var container = document.createElement("span");
+          container.className = "ksi-class-badges";
+          for (var i = 0; i < cls.length; i++) {
+            var badge = document.createElement("span");
+            badge.className = "ksi-class-badge";
+            if (selectedClass !== "all" && cls[i] === selectedClass) {
+              badge.className += " ksi-class-badge--active";
+            }
+            badge.textContent = CLASS_LABELS[cls[i]] || cls[i];
+            container.appendChild(badge);
+          }
+          return container;
+        },
+      },
+      {
+        title: "Controls",
+        field: "controls",
+        widthGrow: 1,
+        formatter: function (cell) {
+          var ctrls = cell.getValue() || [];
+          return ctrls.join(", ");
+        },
+      },
+      {
+        title: "Status",
+        field: "status",
+        width: 100,
+        hozAlign: "center",
+        formatter: function (cell) {
+          var val = cell.getValue() || "";
+          var span = document.createElement("span");
+          span.className = "ksi-status ksi-status--" + val;
+          span.textContent = val;
+          return span;
+        },
+      },
+      {
+        // Hidden sort column for theme ordering.
+        title: "",
+        field: "theme_sort_order",
+        visible: false,
+      },
+    ];
+
+    // Build ordered theme code list from pre-sorted rows.
+    var orderedThemeCodes = [];
+    var seenThemes = {};
+    for (var t = 0; t < rows.length; t++) {
+      if (!seenThemes[rows[t].theme_code]) {
+        seenThemes[rows[t].theme_code] = true;
+        orderedThemeCodes.push(rows[t].theme_code);
+      }
+    }
+
+    // Initialize Tabulator.
+    var table = new Tabulator(mount, {
+      data: rows,
+      layout: "fitColumns",
+      groupBy: "theme_code",
+      groupValues: [orderedThemeCodes],
+      groupStartOpen: true,
+      groupToggleElement: "header",
+      groupHeader: function (value, count) {
+        var themeRow = null;
+        for (var i = 0; i < rows.length; i++) {
+          if (rows[i].theme_code === value) {
+            themeRow = rows[i];
+            break;
+          }
+        }
+
+        var container = document.createElement("span");
+        container.className = "ksi-group-header";
+
+        // Theme icon.
+        if (themeRow && themeRow.theme_icon_url) {
+          var img = document.createElement("img");
+          img.src = themeRow.theme_icon_url;
+          img.alt = "";
+          img.className = "ksi-group-icon";
+          container.appendChild(img);
+        } else if (themeRow && themeRow.theme_short_name && iconsBase) {
+          var img2 = document.createElement("img");
+          img2.src =
+            iconsBase + "ksi-" + themeRow.theme_short_name.toLowerCase() + ".svg";
+          img2.alt = "";
+          img2.className = "ksi-group-icon";
+          container.appendChild(img2);
+        }
+
+        // Theme name + count.
+        var nameSpan = document.createElement("span");
+        nameSpan.className = "ksi-group-name";
+        nameSpan.textContent =
+          (themeRow ? themeRow.theme_name : value) +
+          " (" + count + ")";
+        container.appendChild(nameSpan);
+
+        return container;
+      },
+      initialSort: [
+        { column: "theme_sort_order", dir: "asc" },
+        { column: "code", dir: "asc" },
+      ],
+      columns: columns,
+    });
+
+    // -------------------------------------------------------------------
+    // Filtering
+    // -------------------------------------------------------------------
+
+    var searchTerm = "";
+
+    function applyFilters() {
+      table.clearFilter();
+
+      var filters = [];
+
+      // Class filter.
+      if (selectedClass !== "all") {
+        filters.push(function (data) {
+          return data.classes && data.classes.indexOf(selectedClass) !== -1;
+        });
+      }
+
+      // Keyword search filter.
+      if (searchTerm) {
+        var keywords = searchTerm.toLowerCase().split(/\s+/).filter(Boolean);
+        filters.push(function (data) {
+          var blob = data._searchBlob || "";
+          for (var i = 0; i < keywords.length; i++) {
+            if (blob.indexOf(keywords[i]) === -1) return false;
+          }
+          return true;
+        });
+      }
+
+      if (filters.length > 0) {
+        table.setFilter(function (data) {
+          for (var i = 0; i < filters.length; i++) {
+            if (!filters[i](data)) return false;
+          }
+          return true;
+        });
+      }
+
+      // Update result count.
+      updateCount();
+    }
+
+    function updateCount() {
+      if (!countSpan) return;
+      var showing = table.getDataCount("active");
+      if (showing === totalCount) {
+        countSpan.textContent = totalCount + " indicators";
+      } else {
+        countSpan.textContent =
+          "Showing " + showing + " of " + totalCount + " indicators";
+      }
+    }
+
+    // Apply initial class filter after Tabulator has fully built.
+    table.on("tableBuilt", function () {
+      applyFilters();
+    });
+
+    // Search input — debounced.
+    var debounceTimer = null;
+    if (searchInput) {
+      searchInput.addEventListener("input", function () {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(function () {
+          searchTerm = searchInput.value.trim();
+          applyFilters();
+        }, 250);
+      });
+    }
+
+    // Class selector.
+    if (classSelect) {
+      classSelect.addEventListener("change", function () {
+        selectedClass = classSelect.value;
+        try {
+          localStorage.setItem(STORAGE_KEY, selectedClass);
+        } catch (e) {
+          // localStorage unavailable.
+        }
+        applyFilters();
+      });
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Bootstrap
+  // -------------------------------------------------------------------------
+
+  var INIT_ATTR = "data-ksi-initialized";
+
+  function mountAll() {
+    var mounts = document.querySelectorAll("[data-ksi-panel-id]");
+    for (var i = 0; i < mounts.length; i++) {
+      if (!mounts[i].hasAttribute(INIT_ATTR)) {
+        mounts[i].setAttribute(INIT_ATTR, "1");
+        initPanel(mounts[i]);
+      }
+    }
+  }
+
+  // Initial mount.
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", mountAll);
+  } else {
+    mountAll();
+  }
+
+  // Re-mount after HTMX swaps (panel fragments loaded asynchronously).
+  document.addEventListener("htmx:afterSettle", mountAll);
+})();

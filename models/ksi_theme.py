@@ -24,6 +24,7 @@ class KsiTheme(BaseModel):
         "short_name": {"type": "string", "pattern": "^[A-Z]{3}$"},
         "web_name": {"type": "string", "minLength": 1},
         "description": {"type": "string"},
+        "sort_order": {"type": "integer", "minimum": 0},
     }
 
     FIELD_VALIDATION_SCHEMA: ClassVar[dict[str, Any]] = {
@@ -31,13 +32,23 @@ class KsiTheme(BaseModel):
             "validation": "jsonschema",
             "schema": {"type": "string", "pattern": "^KSI-[A-Z]{3}$"},
         },
-        "name": {"validation": "jsonschema", "schema": {"type": "string", "minLength": 1}},
+        "name": {
+            "validation": "jsonschema",
+            "schema": {"type": "string", "minLength": 1},
+        },
         "short_name": {
             "validation": "jsonschema",
             "schema": {"type": "string", "pattern": "^[A-Z]{3}$"},
         },
-        "web_name": {"validation": "jsonschema", "schema": {"type": "string", "minLength": 1}},
+        "web_name": {
+            "validation": "jsonschema",
+            "schema": {"type": "string", "minLength": 1},
+        },
         "description": {"validation": "jsonschema", "schema": {"type": "string"}},
+        "sort_order": {
+            "validation": "jsonschema",
+            "schema": {"type": "integer", "minimum": 0},
+        },
     }
     CREATE_REQUIRED: ClassVar[list[str]] = ["code", "name", "short_name", "web_name"]
 
@@ -46,9 +57,11 @@ class KsiTheme(BaseModel):
     short_name = models.CharField(max_length=3, blank=True, default="")
     web_name = models.CharField(max_length=64, blank=True, default="")
     description = models.TextField(blank=True, default="")
+    sort_order = models.PositiveIntegerField(default=0, db_index=True)
 
     class Meta(BaseModel.Meta):
         db_table = "ksi_theme"
+        ordering = ["sort_order", "code"]
 
     def get_name(self) -> str:
         return self.name or self.code

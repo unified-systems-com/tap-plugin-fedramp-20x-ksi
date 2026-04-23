@@ -4,4 +4,13 @@ from tap_plugins.base import TapPluginConfig
 
 
 class Fedramp20xKsiConfig(TapPluginConfig):
-    pass
+    def ready(self) -> None:
+        super().ready()
+        from plugins.fedramp_20x_ksi.panels.compliance_view import (
+            KsiCompliancePanelType,
+        )
+        from tap_web.registry import panel_type_registry
+
+        panel_type_registry.register(
+            "fedramp-20x-ksi-compliance", KsiCompliancePanelType
+        )

@@ -23,15 +23,18 @@ import re
 import subprocess
 import sys
 import uuid
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 try:
     import jsonschema
 except ImportError:
-    print("ERROR: jsonschema not installed. Run: pip install jsonschema", file=sys.stderr)
+    print(
+        "ERROR: jsonschema not installed. Run: pip install jsonschema", file=sys.stderr
+    )
     sys.exit(2)
 
 
@@ -93,7 +96,10 @@ class FlagBag:
         return any(f.severity == "warn" for f in self.flags)
 
     def as_list(self) -> list[dict[str, str]]:
-        return [{"severity": f.severity, "code": f.code, "detail": f.detail} for f in self.flags]
+        return [
+            {"severity": f.severity, "code": f.code, "detail": f.detail}
+            for f in self.flags
+        ]
 
 
 # Git helpers — operate on upstream submodule --------------------------------
@@ -104,7 +110,9 @@ def _git(args: list[str], cwd: Path) -> str:
         ["git"] + args, cwd=cwd, check=False, capture_output=True, text=True
     )
     if result.returncode != 0:
-        raise RuntimeError(f"git {' '.join(args)} failed in {cwd}: {result.stderr.strip()}")
+        raise RuntimeError(
+            f"git {' '.join(args)} failed in {cwd}: {result.stderr.strip()}"
+        )
     return result.stdout.rstrip("\n")
 
 
@@ -144,7 +152,12 @@ def upstream_commits_between(since: str | None, to: str) -> list[dict[str, Any]]
         _ensure_reachable(since)
     range_arg = to if since is None else f"{since}..{to}"
     output = _git(
-        ["log", range_arg, "--no-merges", "--pretty=format:%H%x1f%cI%x1f%an%x1f%ae%x1f%G?%x1f%s"],
+        [
+            "log",
+            range_arg,
+            "--no-merges",
+            "--pretty=format:%H%x1f%cI%x1f%an%x1f%ae%x1f%G?%x1f%s",
+        ],
         UPSTREAM_DIR,
     )
     commits = []
@@ -155,15 +168,17 @@ def upstream_commits_between(since: str | None, to: str) -> list[dict[str, Any]]
         if len(parts) < 6:
             continue
         sha, date, name, email, gpg, subject = parts
-        commits.append({
-            "sha": sha,
-            "date": date,
-            "author_name": name,
-            "author_email": email,
-            "signed": gpg != "N",
-            "verified": gpg == "G",
-            "message_first_line": subject[:200],
-        })
+        commits.append(
+            {
+                "sha": sha,
+                "date": date,
+                "author_name": name,
+                "author_email": email,
+                "signed": gpg != "N",
+                "verified": gpg == "G",
+                "message_first_line": subject[:200],
+            }
+        )
     return commits
 
 
@@ -222,10 +237,16 @@ def check_origin(origin: dict[str, Any], bag: FlagBag) -> None:
     actual = upstream_remote_url()
     accepted = [origin["expected_url"]] + origin.get("expected_url_aliases", [])
     if actual not in accepted:
-        bag.add("block", "ORIGIN_MISMATCH", f"Submodule URL '{actual}' not in pinned expected set")
+        bag.add(
+            "block",
+            "ORIGIN_MISMATCH",
+            f"Submodule URL '{actual}' not in pinned expected set",
+        )
 
 
-def check_history_integrity(prior_sha: str | None, current_sha: str, bag: FlagBag) -> None:
+def check_history_integrity(
+    prior_sha: str | None, current_sha: str, bag: FlagBag
+) -> None:
     if prior_sha is None:
         return
     if prior_sha == current_sha:
@@ -244,10 +265,18 @@ def check_source_files(bag: FlagBag) -> tuple[bytes, bytes] | tuple[None, None]:
     src_path = UPSTREAM_DIR / origin["source_json_path"]
     schema_path = UPSTREAM_DIR / origin["source_schema_path"]
     if not src_path.exists():
-        bag.add("block", "SOURCE_MISSING", f"{origin['source_json_path']} missing from upstream")
+        bag.add(
+            "block",
+            "SOURCE_MISSING",
+            f"{origin['source_json_path']} missing from upstream",
+        )
         return None, None
     if not schema_path.exists():
-        bag.add("block", "SOURCE_MISSING", f"{origin['source_schema_path']} missing from upstream")
+        bag.add(
+            "block",
+            "SOURCE_MISSING",
+            f"{origin['source_schema_path']} missing from upstream",
+        )
         return None, None
     src_bytes = src_path.read_bytes()
     schema_bytes = schema_path.read_bytes()
@@ -274,7 +303,11 @@ def validate_against_pinned_schema(source: dict[str, Any], bag: FlagBag) -> None
     try:
         jsonschema.validate(source, load_pinned_schema())
     except jsonschema.ValidationError as exc:
-        bag.add("block", "SCHEMA_VALIDATION", f"Source fails pinned schema: {exc.message[:200]}")
+        bag.add(
+            "block",
+            "SCHEMA_VALIDATION",
+            f"Source fails pinned schema: {exc.message[:200]}",
+        )
 
 
 def check_structural_caps(source: dict[str, Any], bag: FlagBag) -> None:
@@ -305,7 +338,9 @@ def walk_strings(obj: Any, path: str = "") -> Iterable[tuple[str, str]]:
 def check_character_classes(source: dict[str, Any], bag: FlagBag) -> None:
     for path, text in walk_strings(source):
         if BIDI_OVERRIDE_RE.search(text):
-            bag.add("block", "CHARACTER_CLASS", f"{path}: contains BiDi override character")
+            bag.add(
+                "block", "CHARACTER_CLASS", f"{path}: contains BiDi override character"
+            )
             return
         if BAD_CONTROL_RE.search(text):
             bag.add(
@@ -332,13 +367,17 @@ def check_code_formats(source: dict[str, Any], bag: FlagBag) -> None:
             )
         for ind_code in theme.get("indicators", {}):
             if not INDICATOR_CODE_RE.match(ind_code):
-                bag.add("warn", "CODE_FORMAT", f"Indicator code '{ind_code}' violates regex")
+                bag.add(
+                    "warn", "CODE_FORMAT", f"Indicator code '{ind_code}' violates regex"
+                )
 
 
 # Denylist heuristics ---------------------------------------------------------
 
 
-def run_denylist_on_ksi(source: dict[str, Any], safety: dict[str, Any], bag: FlagBag) -> None:
+def run_denylist_on_ksi(
+    source: dict[str, Any], safety: dict[str, Any], bag: FlagBag
+) -> None:
     ksi_section = source.get("KSI", {})
     for rule_name, rule in safety.items():
         if not isinstance(rule, dict):
@@ -357,7 +396,9 @@ def run_denylist_on_ksi(source: dict[str, Any], safety: dict[str, Any], bag: Fla
                 try:
                     if re.search(pat, text, re.IGNORECASE):
                         snippet = text[:80].replace("\n", "\\n")
-                        bag.add(severity, code, f"{path}: matches {pat!r} near {snippet!r}")
+                        bag.add(
+                            severity, code, f"{path}: matches {pat!r} near {snippet!r}"
+                        )
                         break
                 except re.error:
                     # Malformed pattern in denylist — skip silently; should be caught in dev
@@ -390,7 +431,11 @@ def check_commits(
             )
         msg = c["message_first_line"].strip()
         if len(msg) < min_len:
-            bag.add("warn", "COMMIT_MESSAGE_QUALITY", f"{c['sha'][:7]} message too short: {msg!r}")
+            bag.add(
+                "warn",
+                "COMMIT_MESSAGE_QUALITY",
+                f"{c['sha'][:7]} message too short: {msg!r}",
+            )
             continue
         for pat in patterns:
             try:
@@ -504,7 +549,9 @@ def diff_catalog(
     pi = prior["indicators"]
     return {
         "themes_added": {k: v for k, v in new_themes.items() if k not in pt},
-        "themes_modified": {k: v for k, v in new_themes.items() if k in pt and pt[k] != v},
+        "themes_modified": {
+            k: v for k, v in new_themes.items() if k in pt and pt[k] != v
+        },
         "themes_removed": {k: pt[k] for k in pt if k not in new_themes},
         "indicators_added": {k: v for k, v in new_indicators.items() if k not in pi},
         "indicators_modified": {
@@ -532,7 +579,7 @@ def assemble_wave(
     prior_catalog_size: int,
     flag_bag: FlagBag,
 ) -> dict[str, Any]:
-    now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    now_iso = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     deprecated_count = len(diff["indicators_removed"])
     new_catalog_size = diff["new_indicators_count"]
 
@@ -568,7 +615,9 @@ def assemble_wave(
 
     jsonschema.validate(description_payload, load_wave_schema())
 
-    wave_batch_id = ns_uuid(namespace, "wave", f"{source_info['commit_to']}:{wave_filename}")
+    wave_batch_id = ns_uuid(
+        namespace, "wave", f"{source_info['commit_to']}:{wave_filename}"
+    )
 
     def theme_node(code: str, state: dict[str, Any]) -> dict[str, Any]:
         return {
@@ -612,21 +661,25 @@ def assemble_wave(
         theme_code = theme_lookup.get(ind_code)
         if not theme_code:
             continue
-        edges.append({
-            "entity": {
-                "entity_id": ns_uuid(
-                    namespace, "edge:CONTAINS_INDICATOR", f"{theme_code}->{ind_code}"
-                ),
-                "entity_type": "edge",
-                "dimensions": {"compliance": "fedramp-20x"},
-            },
-            "edge": {
-                "from_entity_id": ns_uuid(namespace, "ksi_theme", theme_code),
-                "to_entity_id": ns_uuid(namespace, "ksi_indicator", ind_code),
-                "edge_type": "CONTAINS_INDICATOR",
-                "properties": {},
-            },
-        })
+        edges.append(
+            {
+                "entity": {
+                    "entity_id": ns_uuid(
+                        namespace,
+                        "edge:CONTAINS_INDICATOR",
+                        f"{theme_code}->{ind_code}",
+                    ),
+                    "entity_type": "edge",
+                    "dimensions": {"compliance": "fedramp-20x"},
+                },
+                "edge": {
+                    "from_entity_id": ns_uuid(namespace, "ksi_theme", theme_code),
+                    "to_entity_id": ns_uuid(namespace, "ksi_indicator", ind_code),
+                    "edge_type": "CONTAINS_INDICATOR",
+                    "properties": {},
+                },
+            }
+        )
 
     batch = {
         "batch_entity": {
@@ -661,7 +714,7 @@ def run(dry_run: bool, output_format: str) -> int:
     result: dict[str, Any] = {
         "tool": "refresh-ksi-catalog",
         "tool_version": "v0",
-        "started_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "started_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
     }
 
     # Integrity
@@ -722,7 +775,9 @@ def run(dry_run: bool, output_format: str) -> int:
     prior_catalog_size = len(prior_state["indicators"])
     diff = diff_catalog(source, prior_state)
     deprecated_count = len(diff["indicators_removed"])
-    deletion_ratio = deprecated_count / prior_catalog_size if prior_catalog_size > 0 else 0.0
+    deletion_ratio = (
+        deprecated_count / prior_catalog_size if prior_catalog_size > 0 else 0.0
+    )
     if deletion_ratio > MASS_DELETION_RATIO:
         bag.add(
             "block",
@@ -740,7 +795,9 @@ def run(dry_run: bool, output_format: str) -> int:
 
     # Churn
     churn_count = (
-        len(diff["indicators_added"]) + len(diff["indicators_modified"]) + deprecated_count
+        len(diff["indicators_added"])
+        + len(diff["indicators_modified"])
+        + deprecated_count
     )
     if prior_catalog_size > 0 and churn_count / prior_catalog_size > 0.5:
         bag.add(
@@ -756,7 +813,7 @@ def run(dry_run: bool, output_format: str) -> int:
     commit_from_date = None
     is_initial = prior_sha is None
     wave_index = len(state.get("waves", [])) + 1
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today = datetime.now(UTC).strftime("%Y-%m-%d")
     prefix = "ksi-initial" if is_initial else "ksi-wave"
     wave_filename = f"{prefix}-{today}.grift.json"
 
@@ -773,7 +830,9 @@ def run(dry_run: bool, output_format: str) -> int:
     }
 
     if is_initial:
-        bag.add("info", "INITIAL_WAVE", "No prior baseline; full catalog emitted as new")
+        bag.add(
+            "info", "INITIAL_WAVE", "No prior baseline; full catalog emitted as new"
+        )
 
     theme_lookup = build_theme_lookup(source)
     wave_doc = assemble_wave(
@@ -798,14 +857,16 @@ def run(dry_run: bool, output_format: str) -> int:
         state["last_integrated_sha"] = current_sha
         state["last_integrated_date"] = commit_to_date
         state["last_integrated_file_sha256"] = source_info["file_sha256"]
-        state.setdefault("waves", []).append({
-            "index": wave_index,
-            "filename": wave_path_rel,
-            "sha": current_sha,
-            "authored_at": datetime.now(timezone.utc)
-            .isoformat()
-            .replace("+00:00", "Z"),
-        })
+        state.setdefault("waves", []).append(
+            {
+                "index": wave_index,
+                "filename": wave_path_rel,
+                "sha": current_sha,
+                "authored_at": datetime.now(UTC)
+                .isoformat()
+                .replace("+00:00", "Z"),
+            }
+        )
         save_state_manifest(state)
 
     result["wave_filename"] = wave_path_rel
@@ -832,12 +893,16 @@ def _finalize(
     result["flags"] = bag.as_list()
     result["blocked"] = bag.has_block
     result["review_required"] = bag.has_warn or bag.has_block
-    result["finished_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    result["finished_at"] = (
+        datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    )
 
     if output_format == "json":
         print(json.dumps(result, indent=2))
     else:
-        print(f"refresh-ksi-catalog: blocked={bag.has_block} review_required={result['review_required']}")
+        print(
+            f"refresh-ksi-catalog: blocked={bag.has_block} review_required={result['review_required']}"
+        )
         for f in bag.flags:
             print(f"  [{f.severity}] {f.code}: {f.detail}")
         if wave_path:
@@ -847,12 +912,25 @@ def _finalize(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Refresh FedRAMP 20x KSI catalog from upstream submodule")
-    parser.add_argument("--dry-run", action="store_true", help="Do not write wave file or update state manifest")
-    parser.add_argument(
-        "--output-format", choices=("json", "text"), default="text", help="stdout format"
+    parser = argparse.ArgumentParser(
+        description="Refresh FedRAMP 20x KSI catalog from upstream submodule"
     )
-    parser.add_argument("--ci", action="store_true", help="Alias for --output-format json (reserved for CI-specific defaults)")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Do not write wave file or update state manifest",
+    )
+    parser.add_argument(
+        "--output-format",
+        choices=("json", "text"),
+        default="text",
+        help="stdout format",
+    )
+    parser.add_argument(
+        "--ci",
+        action="store_true",
+        help="Alias for --output-format json (reserved for CI-specific defaults)",
+    )
     args = parser.parse_args(argv)
     if args.ci:
         args.output_format = "json"

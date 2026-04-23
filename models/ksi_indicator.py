@@ -45,7 +45,10 @@ class KsiIndicator(BaseModel):
             "validation": "jsonschema",
             "schema": {"type": "string", "pattern": "^KSI-[A-Z]{3}-[A-Z0-9]{3}$"},
         },
-        "name": {"validation": "jsonschema", "schema": {"type": "string", "minLength": 1}},
+        "name": {
+            "validation": "jsonschema",
+            "schema": {"type": "string", "minLength": 1},
+        },
         "description": {"validation": "jsonschema", "schema": {"type": "string"}},
         "classes": {
             "validation": "jsonschema",
