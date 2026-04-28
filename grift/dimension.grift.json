@@ -6,7 +6,7 @@
   "batches": [
     {
       "batch_entity": {
-        "entity_id": "0197fed0-0000-7000-8000-000000000001",
+        "entity_id": "019dd143-3e8f-73e4-b0fa-e6736008051e",
         "entity_type": "batch",
         "name": "FedRAMP 20x KSI dimension v0.1.0",
         "dimensions": {}
@@ -19,7 +19,7 @@
       "nodes": [
         {
           "entity": {
-            "entity_id": "0197fed0-0000-7000-8000-000000000002",
+            "entity_id": "019dd143-3e8f-73e4-b0fa-e674128c4a73",
             "entity_type": "dimension",
             "name": "compliance: fedramp-20x",
             "dimensions": {

@@ -6,7 +6,7 @@
   "batches": [
     {
       "batch_entity": {
-        "entity_id": "0197fed0-0000-7000-8000-200000000001",
+        "entity_id": "019dd143-3e8f-73e4-b0fa-e69aa92b3613",
         "entity_type": "batch",
         "name": "FedRAMP 20x KSI indicator profile page v0.1.0",
         "dimensions": {}
@@ -19,7 +19,7 @@
       "nodes": [
         {
           "entity": {
-            "entity_id": "0197fed0-0000-7000-8000-200000000010",
+            "entity_id": "019dd143-3e8f-73e4-b0fa-e69b115283b4",
             "entity_type": "panel",
             "name": "FedRAMP 20x KSI Indicator Profile",
             "dimensions": {
@@ -36,7 +36,7 @@
         },
         {
           "entity": {
-            "entity_id": "0197fed0-0000-7000-8000-200000000020",
+            "entity_id": "019dd143-3e8f-73e4-b0fa-e69c61d75d0a",
             "entity_type": "page",
             "name": "KSI Indicator",
             "dimensions": {
@@ -62,14 +62,14 @@
       "edges": [
         {
           "entity": {
-            "entity_id": "0197fed0-0000-7000-8000-200000000030",
+            "entity_id": "019dd143-3e8f-73e4-b0fa-e69d4d679e93",
             "entity_type": "edge",
             "name": "USES_PANEL",
             "dimensions": {"tap.graph": "web"}
           },
           "edge": {
-            "from_entity_id": "0197fed0-0000-7000-8000-200000000020",
-            "to_entity_id": "0197fed0-0000-7000-8000-200000000010",
+            "from_entity_id": "019dd143-3e8f-73e4-b0fa-e69c61d75d0a",
+            "to_entity_id": "019dd143-3e8f-73e4-b0fa-e69b115283b4",
             "edge_type": "USES_PANEL",
             "properties": {
               "hotlink": {
