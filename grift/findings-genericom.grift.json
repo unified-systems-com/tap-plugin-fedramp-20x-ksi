@@ -6,26 +6,26 @@
   "batches": [
     {
       "batch_entity": {
-        "entity_id": "019dd143-3e8f-73e4-b0fa-e675ff5449da",
+        "entity_id": "019df53d-925e-7056-b11c-8fd0c822e6c7",
         "entity_type": "batch",
-        "name": "fedramp_20x_ksi findings-genericom v0.1.0",
+        "name": "fedramp_20x_ksi findings-genericom v0.2.1",
         "dimensions": {}
       },
       "batch_node": {
         "source": "plugins.fedramp_20x_ksi",
-        "name": "fedramp_20x_ksi findings-genericom v0.1.0",
-        "description": "Seeds a handful of compliance findings against Genericom demo assets, plus one active exception. Used to exercise the alert-count status-badge population via multi-hop gryphon queries. Cross-plugin seed dependency: references Genericom entity IDs — acceptable for demo, not the pattern for production ingestion."
+        "name": "fedramp_20x_ksi findings-genericom v0.2.1",
+        "description": "Seeds compliance findings against Genericom demo assets plus one active exception. v0.2.1 verifies the GRIFT importer's new spine-sync rule (req-grid-import-grift-batch / Spine Sync) — re-imports of this batch propagate envelope-side Entity.name and Entity.dimensions to existing Entity rows, not just to model-side fields."
       },
       "nodes": [
         {
           "entity": {
             "entity_id": "019dd143-3e8f-73e4-b0fa-e67b80f8f2c0",
             "entity_type": "finding",
-            "name": "prod-web-a: no passwordless SSH authentication",
+            "name": "no passwordless SSH authentication",
             "dimensions": {"compliance": "fedramp-20x"}
           },
           "node": {
-            "name": "prod-web-a: no passwordless SSH authentication",
+            "name": "no passwordless SSH authentication",
             "description": "The EC2 instance permits password-based SSH auth; passwordless/certificate-based access is not enforced.",
             "status": "open"
           }
@@ -34,11 +34,11 @@
           "entity": {
             "entity_id": "019dd143-3e8f-73e4-b0fa-e67cae9a36e2",
             "entity_type": "finding",
-            "name": "prod-web-c: no passwordless SSH authentication",
+            "name": "no passwordless SSH authentication",
             "dimensions": {"compliance": "fedramp-20x"}
           },
           "node": {
-            "name": "prod-web-c: no passwordless SSH authentication",
+            "name": "no passwordless SSH authentication",
             "description": "The EC2 instance permits password-based SSH auth; passwordless/certificate-based access is not enforced.",
             "status": "open"
           }
@@ -47,11 +47,11 @@
           "entity": {
             "entity_id": "019dd143-3e8f-73e4-b0fa-e67d91b8562a",
             "entity_type": "finding",
-            "name": "prod-web-a: log access not centrally authorized",
+            "name": "log access not centrally authorized",
             "dimensions": {"compliance": "fedramp-20x"}
           },
           "node": {
-            "name": "prod-web-a: log access not centrally authorized",
+            "name": "log access not centrally authorized",
             "description": "System logs are readable by local root without central access-control mediation.",
             "status": "open"
           }
@@ -60,11 +60,11 @@
           "entity": {
             "entity_id": "019dd143-3e8f-73e4-b0fa-e67ec7762eec",
             "entity_type": "finding",
-            "name": "prod-postgres: intended state drift",
+            "name": "intended state drift",
             "dimensions": {"compliance": "fedramp-20x"}
           },
           "node": {
-            "name": "prod-postgres: intended state drift",
+            "name": "intended state drift",
             "description": "Running parameter_group deviates from the approved baseline; pg_stat_statements and logging settings out of alignment.",
             "status": "open"
           }
@@ -73,11 +73,11 @@
           "entity": {
             "entity_id": "019dd143-3e8f-73e4-b0fa-e67fcbbcf5e9",
             "entity_type": "finding",
-            "name": "prod-redis: unauthenticated access",
+            "name": "unauthenticated access",
             "dimensions": {"compliance": "fedramp-20x"}
           },
           "node": {
-            "name": "prod-redis: unauthenticated access",
+            "name": "unauthenticated access",
             "description": "Redis instance accepts connections without requiring AUTH. Accepted risk: covered by active exception during cutover.",
             "status": "open"
           }
@@ -86,11 +86,11 @@
           "entity": {
             "entity_id": "019dd143-3e8f-73e4-b0fa-e68002bc86e6",
             "entity_type": "finding",
-            "name": "prod-web-alb: supply-chain monitoring gap",
+            "name": "supply-chain monitoring gap",
             "dimensions": {"compliance": "fedramp-20x"}
           },
           "node": {
-            "name": "prod-web-alb: supply-chain monitoring gap",
+            "name": "supply-chain monitoring gap",
             "description": "ALB-attached TLS certificate issuer is not enrolled in the supply-chain risk monitoring pipeline.",
             "status": "open"
           }
@@ -99,11 +99,11 @@
           "entity": {
             "entity_id": "019dd143-3e8f-73e4-b0fa-e6817ccdab62",
             "entity_type": "finding",
-            "name": "prod-web-a: recent configuration change observed",
+            "name": "recent configuration change observed",
             "dimensions": {"compliance": "fedramp-20x"}
           },
           "node": {
-            "name": "prod-web-a: recent configuration change observed",
+            "name": "recent configuration change observed",
             "description": "Automated drift detector noted a configuration delta in the last 24 hours. Informational — not yet classified as a deficiency.",
             "status": "open"
           }
@@ -112,11 +112,11 @@
           "entity": {
             "entity_id": "019dd143-3e8f-73e4-b0fa-e68200dcbd05",
             "entity_type": "finding",
-            "name": "prod-postgres: prior log-evaluation gap (remediated)",
+            "name": "prior log-evaluation gap (remediated)",
             "dimensions": {"compliance": "fedramp-20x"}
           },
           "node": {
-            "name": "prod-postgres: prior log-evaluation gap (remediated)",
+            "name": "prior log-evaluation gap (remediated)",
             "description": "Historical finding: log evaluation pipeline was missing a stage. Remediated last cycle.",
             "status": "resolved"
           }
