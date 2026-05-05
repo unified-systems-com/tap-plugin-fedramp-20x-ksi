@@ -26,11 +26,12 @@
     }
   }
 
-  function statusPillFormatter(cell) {
+  function relationshipPillFormatter(cell) {
     var v = (cell.getValue() || "").toString();
     if (!v) return "";
     var el = document.createElement("span");
-    el.className = "ksi-finding-status-pill ksi-finding-status-pill--" + v;
+    el.className =
+      "ksi-finding-status-pill ksi-finding-status-pill--" + v;
     el.textContent = v;
     return el;
   }
@@ -95,11 +96,11 @@
       placeholder: "No findings linked to this indicator.",
       columns: [
         {
-          title: "Status",
-          field: "finding_status",
-          width: 120,
+          title: "Relationship",
+          field: "finding_relationship",
+          width: 130,
           headerSort: true,
-          formatter: statusPillFormatter,
+          formatter: relationshipPillFormatter,
           hozAlign: "center",
           headerHozAlign: "center",
         },

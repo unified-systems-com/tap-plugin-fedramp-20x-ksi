@@ -323,7 +323,10 @@
   padding: 0.625rem 0.75rem;
 }
 
-/* Status pill colors — open=amber, resolved=green. */
+/* Relationship pill colors — verdict-on-edge model: violation=red,
+   passing=green, informational=sky. The class name remains
+   ksi-finding-status-pill for CSS continuity; the *value* is the
+   per-edge `relationship_type`, not the finding's lifecycle status. */
 .ksi-finding-status-pill {
   display: inline-block;
   padding: 0.125rem 0.5rem;
@@ -332,13 +335,17 @@
   font-weight: 600;
   text-transform: capitalize;
 }
-.ksi-finding-status-pill--open {
-  background: #fef3c7;
-  color: #92400e;
+.ksi-finding-status-pill--violation {
+  background: #fee2e2;
+  color: #991b1b;
 }
-.ksi-finding-status-pill--resolved {
+.ksi-finding-status-pill--passing {
   background: #dcfce7;
   color: #166534;
+}
+.ksi-finding-status-pill--informational {
+  background: #e0f2fe;
+  color: #075985;
 }
 
 .ksi-finding-row-link {

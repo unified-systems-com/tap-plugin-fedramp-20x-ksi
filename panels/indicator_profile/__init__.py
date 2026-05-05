@@ -256,8 +256,15 @@ def _load_findings_rows(indicator_entity_id: str) -> list[dict[str, Any]]:
         if fid and sid:
             parents_by_finding.setdefault(fid, []).append(sid)
 
-    # Walk RELATED_INDICATOR edges that target this indicator to find linked findings.
+    # Walk RELATED_INDICATOR edges that target this indicator. Each edge carries
+    # the per-link verdict in `relationship_type` (violation / passing /
+    # informational). We render this as the row's status pill instead of the
+    # finding's lifecycle status — the user-facing question on this page is
+    # "is this finding a violation or passing of *this* indicator", not "is the
+    # finding open or resolved." See spec-fedramp-20x-ksi-finding.md
+    # req-fedramp-20x-ksi-finding-related-edge.
     finding_ids: list[str] = []
+    relationship_by_finding: dict[str, str] = {}
     seen_findings: set[str] = set()
     for edge in edges:
         ebody = edge.get("edge") or {}
@@ -269,6 +276,8 @@ def _load_findings_rows(indicator_entity_id: str) -> list[dict[str, Any]]:
         if fid and fid not in seen_findings:
             seen_findings.add(fid)
             finding_ids.append(fid)
+            props = ebody.get("properties") or {}
+            relationship_by_finding[fid] = props.get("relationship_type", "") or ""
 
     rows: list[dict[str, Any]] = []
     for fid in finding_ids:
@@ -278,7 +287,7 @@ def _load_findings_rows(indicator_entity_id: str) -> list[dict[str, Any]]:
         f_ent = f_node.get("entity") or {}
         f_body = f_node.get("node") or {}
         f_name = f_ent.get("name") or f_body.get("name") or ""
-        f_status = f_body.get("status", "")
+        f_relationship = relationship_by_finding.get(fid, "")
         f_desc = f_body.get("description", "")
         f_created_iso = f_ent.get("created_at")
         opened_relative = _relative_timestamp(f_created_iso)
@@ -290,7 +299,7 @@ def _load_findings_rows(indicator_entity_id: str) -> list[dict[str, Any]]:
                 {
                     "finding_id": fid,
                     "finding_name": f_name,
-                    "finding_status": f_status,
+                    "finding_relationship": f_relationship,
                     "finding_description": f_desc,
                     "system_id": "",
                     "system_name": "",
@@ -307,7 +316,7 @@ def _load_findings_rows(indicator_entity_id: str) -> list[dict[str, Any]]:
                 {
                     "finding_id": fid,
                     "finding_name": f_name,
-                    "finding_status": f_status,
+                    "finding_relationship": f_relationship,
                     "finding_description": f_desc,
                     "system_id": sid,
                     "system_name": s_ent.get("name") or s_body.get("name") or "",
@@ -316,8 +325,10 @@ def _load_findings_rows(indicator_entity_id: str) -> list[dict[str, Any]]:
                 }
             )
 
-    # Open first; newest within status group. Two-pass stable sort: secondary
-    # key first (created desc), then primary (status open before resolved).
+    # Violations first, then passing, then informational, then unknown.
+    # Two-pass stable sort: secondary key first (created desc), then primary
+    # (relationship-type rank).
+    _REL_RANK = {"violation": 0, "passing": 1, "informational": 2}
     rows.sort(key=lambda r: r["opened_full"], reverse=True)
-    rows.sort(key=lambda r: 0 if r["finding_status"] == "open" else 1)
+    rows.sort(key=lambda r: _REL_RANK.get(r["finding_relationship"], 9))
     return rows
