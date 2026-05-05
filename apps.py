@@ -24,6 +24,9 @@ class Fedramp20xKsiConfig(TapPluginConfig):
         from plugins.fedramp_20x_ksi.panels.findings_by_system import (
             FindingsBySystemPanelType,
         )
+        from plugins.fedramp_20x_ksi.panels.instance_findings import (
+            KsiInstanceFindingsPanelType,
+        )
         from tap_web.registry import panel_type_registry
 
         panel_type_registry.register(
@@ -38,3 +41,6 @@ class Fedramp20xKsiConfig(TapPluginConfig):
         panel_type_registry.register("finding_strip", FindingStripPanelType)
         panel_type_registry.register("findings_by_system", FindingsBySystemPanelType)
         panel_type_registry.register("findings_by_ksi", FindingsByKsiPanelType)
+        panel_type_registry.register(
+            "fedramp-20x-ksi-instance-findings", KsiInstanceFindingsPanelType
+        )
