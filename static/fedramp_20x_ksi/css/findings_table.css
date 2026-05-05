@@ -142,3 +142,28 @@
 .findings-group-header a.findings-group-name:hover {
     text-decoration: underline;
 }
+
+/* Breadcrumb — mirrors panel-ksi-finding-profile.css so the findings
+   listing page and the finding profile page read as siblings. */
+.finding-profile-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: #64748b;
+  margin-bottom: 1.25rem;
+}
+.finding-breadcrumb-link {
+  color: #475c7a;
+  text-decoration: none;
+}
+.finding-breadcrumb-link:hover {
+  text-decoration: underline;
+}
+.finding-breadcrumb-sep {
+  color: #cbd5e1;
+}
+.finding-breadcrumb-current {
+  color: #1e293b;
+  font-weight: 500;
+}

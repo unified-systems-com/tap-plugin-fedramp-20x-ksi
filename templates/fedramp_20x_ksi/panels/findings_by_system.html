@@ -1,5 +1,12 @@
 {% load static %}
 <div class="tap-panel tap-panel--findings-by-system">
+    {# Breadcrumb — matches the finding profile page hint. #}
+    <nav class="finding-profile-breadcrumb">
+        <a href="/fedramp-ksi" class="finding-breadcrumb-link">FedRAMP 20x KSI</a>
+        <span class="finding-breadcrumb-sep">/</span>
+        <span class="finding-breadcrumb-current">Findings</span>
+    </nav>
+
     {% if not panel.config.hide_header %}{% include "tap_web/panel_header.html" %}{% endif %}
 
     {% if findings_error %}
