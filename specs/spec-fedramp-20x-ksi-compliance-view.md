@@ -29,7 +29,7 @@ The first version is informational only: no editing, no scoring, no evidence lin
 | req-ksi-compview-data | [Data Loading](#data-loading) | Implemented | Gryphon query loads full subgraph; raw envelope passed to JS |
 | req-ksi-compview-grouping | [Theme Grouping](#theme-grouping) | Implemented | Indicators grouped by theme with collapsible headers; order via `sort_order` field |
 | req-ksi-compview-search | [Keyword Search](#keyword-search) | Implemented | Client-side keyword filtering across all indicator text fields |
-| req-ksi-compview-class-select | [Class Selector](#class-selector) | Implemented | Dropdown filters by class and resolves class-variant statements; sticky via localStorage, defaults to Class C |
+| req-ksi-compview-class-select | [Class Selector](#class-selector) | Implemented | Dropdown filters by class and resolves class-variant statements; default class read from the FedRAMP 20x ComplianceContext via gryphon |
 | req-ksi-compview-columns | [Indicator Columns](#indicator-columns) | Implemented | Domain-specific column set tailored to KSI indicator fields |
 | req-ksi-compview-render | [Rendering Flow](#rendering-flow) | Implemented | Gryphon subgraph embedded via safe_json; JS builds grouped table |
 | req-ksi-compview-url | [Page and URL](#page-and-url) | Implemented | Page seeded via GRIFT at `/fedramp-ksi` |
@@ -148,12 +148,17 @@ A search bar above the table provides instant client-side keyword filtering acro
 RID: `req-ksi-compview-class-select`
 Status: `Implemented`
 
-A dropdown selector allows choosing a FedRAMP Certification Class (a, b, c, d) or "All Classes". The selection filters the indicator list to those applicable at the chosen class and resolves the correct statement text for indicators with class-specific variants. The selection is sticky across page views.
+A dropdown selector allows choosing a FedRAMP Certification Class (a, b, c, d) or "All Classes". The selection filters the indicator list to those applicable at the chosen class and resolves the correct statement text for indicators with class-specific variants. The default selection is read from the Grid's FedRAMP 20x ComplianceContext via gryphon at panel render time; user changes during a session are not persisted client-side.
 
 #### Implementation
 - A select/dropdown control above the table (alongside the keyword search) offers: "All Classes", "Class A — Pilot", "Class B — Low", "Class C — Moderate", "Class D — High".
-- Default selection on first visit is "Class C — Moderate" (the most common compliance target).
-- The selected class is persisted to `localStorage` (key: `tap-ksi-class-selection`) and restored on subsequent page loads.
+- The default selected class is read server-side from the Grid's FedRAMP 20x ComplianceContext (the entity with `regime = "fedramp_20x"`) via a small gryphon query at panel render. The query is scoped to the FedRAMP 20x ComplianceContext only — see `req-fedramp-20x-ksi-compliance-context-fedramp-class`.
+- Default-resolution rules:
+  - ComplianceContext exists with non-empty `fedramp_class` ∈ {a, b, c, d} → use that class as the default.
+  - ComplianceContext exists with `fedramp_class = ""` (empty) → "FedRAMP 20x not in scope for this Grid" → default to `"all"`.
+  - No ComplianceContext exists for `regime = "fedramp_20x"` → deployment misconfiguration; default to `"all"` (defensive — shows everything rather than silently filtering to an unjustified class) and log a warning.
+- The resolved default is passed to the browser via the panel's existing JSON payload — no separate request, no client-side fallback chain, no localStorage. The JS reads the default once at startup and applies it to the dropdown.
+- Per-session user changes to the dropdown are NOT persisted: refreshing the page returns to the ComplianceContext-derived default. This is intentional — link-sharing requires the dominant class to be a property of the Grid, not a property of the viewer's browser. If a user wants to permanently change the dominant class, they update the ComplianceContext via the standard editor flow (future work) or the service layer.
 - When a specific class is selected:
   - Indicators whose `classes` list does not include the selected class are hidden.
   - For indicators with `class_variants`, the statement column displays the statement for the selected class (from `class_variants[<class>].statement`) instead of the generic description.
@@ -172,7 +177,8 @@ A dropdown selector allows choosing a FedRAMP Certification Class (a, b, c, d) o
 | req-ksi-compview-class-select-2 | Filters By Applicability | Implemented | Selecting a class hides indicators whose `classes` list does not include the selected class. | |
 | req-ksi-compview-class-select-3 | Resolves Class Variants | Implemented | When a class is selected, indicators with `class_variants` display the statement for that specific class. | |
 | req-ksi-compview-class-select-4 | Combines With Search | Implemented | Class filter and keyword search apply simultaneously. | |
-| req-ksi-compview-class-select-5 | Default Is Class C | Implemented | First-visit default is "Class C — Moderate". Subsequent visits restore the last selection from localStorage. | |
+| req-ksi-compview-class-select-5 | Default From ComplianceContext | Implemented | The default class is read at render time from the FedRAMP 20x ComplianceContext's `fedramp_class` field. Empty / missing context falls back to "All Classes". | Replaces the prior localStorage stickiness; cross-ref `req-fedramp-20x-ksi-compliance-context-fedramp-class` |
+| req-ksi-compview-class-select-6 | No Client-Side Persistence | Implemented | User changes to the dropdown are not persisted to localStorage or cookies; refreshing returns to the ComplianceContext-derived default. | Intentional — preserves link-sharing semantics |
 
 ### Indicator Columns
 ----

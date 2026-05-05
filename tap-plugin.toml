@@ -10,6 +10,7 @@ ksi_indicator = "plugins.fedramp_20x_ksi.models.ksi_indicator.KsiIndicator"
 finding = "plugins.fedramp_20x_ksi.models.finding.Finding"
 exception = "plugins.fedramp_20x_ksi.models.exception.ComplianceException"
 evidence = "plugins.fedramp_20x_ksi.models.evidence.Evidence"
+compliance_context = "plugins.fedramp_20x_ksi.models.compliance_context.ComplianceContext"
 
 [edges]
 CONTAINS_INDICATOR = "edges/CONTAINS_INDICATOR.edge.json"

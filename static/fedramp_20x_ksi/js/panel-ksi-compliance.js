@@ -10,8 +10,12 @@
 (function () {
   "use strict";
 
-  var STORAGE_KEY = "tap-ksi-class-selection";
-  var DEFAULT_CLASS = "c";
+  // Hard fallback used only if the server-rendered default JSON is missing or
+  // unparseable. The server resolves the real default from the FedRAMP 20x
+  // ComplianceContext (regime="fedramp_20x") and renders it into the
+  // ksi-default-class-<panelId> script tag — see compliance_view.html and
+  // spec-fedramp-20x-ksi-compliance-view.md req-ksi-compview-class-select.
+  var FALLBACK_CLASS = "all";
 
   var CLASS_LABELS = {
     a: "A",
@@ -195,21 +199,24 @@
     var classSelect = document.getElementById("ksi-class-select-" + panelId);
     var countSpan = document.getElementById("ksi-count-" + panelId);
 
-    // Sticky class selection from localStorage.
-    var savedClass = DEFAULT_CLASS;
-    try {
-      var stored = localStorage.getItem(STORAGE_KEY);
-      if (stored && (stored === "all" || CLASS_LABELS[stored])) {
-        savedClass = stored;
+    // Server-rendered default class from the FedRAMP 20x ComplianceContext.
+    var serverDefault = FALLBACK_CLASS;
+    var defaultEl = document.getElementById("ksi-default-class-" + panelId);
+    if (defaultEl) {
+      try {
+        var parsed = JSON.parse(defaultEl.textContent || "");
+        if (parsed === "all" || CLASS_LABELS[parsed]) {
+          serverDefault = parsed;
+        }
+      } catch (e) {
+        // Malformed payload — keep fallback.
       }
-    } catch (e) {
-      // localStorage unavailable.
     }
     if (classSelect) {
-      classSelect.value = savedClass;
+      classSelect.value = serverDefault;
     }
 
-    var selectedClass = savedClass;
+    var selectedClass = serverDefault;
 
     // Per-row class overrides: entity_id -> class letter.
     // When a user clicks a badge on a row with class_variants, the override
@@ -555,17 +562,12 @@
       });
     }
 
-    // Class selector.
+    // Class selector. User changes are NOT persisted — refresh restores the
+    // server-resolved default. See req-ksi-compview-class-select-6.
     if (classSelect) {
       classSelect.addEventListener("change", function () {
         selectedClass = classSelect.value;
-        // Clear per-row overrides when global class changes.
         rowClassOverrides = {};
-        try {
-          localStorage.setItem(STORAGE_KEY, selectedClass);
-        } catch (e) {
-          // localStorage unavailable.
-        }
         applyFilters();
       });
     }
