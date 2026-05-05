@@ -49,7 +49,7 @@ Until then, "two Tabulator instances inside a plugin-owned panel" is the right l
 | --- | --- | :---: | --- |
 | req-ksi-finding-profile-panel | [Finding Profile Panel Type](#finding-profile-panel-type) | Implemented | Plugin-registered panel type for single-finding display |
 | req-ksi-finding-profile-data | [Data Loading](#data-loading) | Implemented | Gryphon hub-and-spoke query loads finding + system/KSI/evidence neighborhood |
-| req-ksi-finding-profile-header | [Hero Header](#hero-header) | Implemented | Name, status badge, breadcrumb |
+| req-ksi-finding-profile-header | [Hero Header](#hero-header) | Implemented | Name + breadcrumb. Verdict pill removed pending verdict-rollup logic — see `spec-fedramp-20x-ksi-finding.md` `req-fedramp-20x-ksi-finding-verdict-rollup` (Backlog). |
 | req-ksi-finding-profile-meta | [Identity Section](#identity-section) | Implemented | System(s), description, status |
 | req-ksi-finding-profile-ksi-table | [Related KSIs Table](#related-ksis-table) | Implemented | Table of related indicators with short descriptions |
 | req-ksi-finding-profile-evidence-table | [Evidence Table](#evidence-table) | Implemented | Row-per-evidence table with click-to-expand details |
@@ -102,11 +102,11 @@ The profile panel loads the finding and its full one-hop neighborhood via a sing
   - **Outbound `RELATED_INDICATOR`** edges to KSI indicator nodes, with a `relationship_type` edge property.
   - **Outbound `HAS_EVIDENCE`** edges to evidence nodes, with `support_kind` and optional `note` edge properties.
 - The panel walks the returned subgraph in Python and builds a structured view-model:
-  - `finding` — flat dict of finding fields plus computed presentation fields: aggregated `verdict`, `created_full` / `updated_full` (full UTC timestamps for hover tooltips), and `created_relative` / `updated_relative` (short human-friendly labels for inline display).
+  - `finding` — flat dict of finding fields plus computed presentation fields: `created_full` / `updated_full` (full UTC timestamps for hover tooltips), and `created_relative` / `updated_relative` (short human-friendly labels for inline display).
   - `systems` — ordered list of `{entity_id, entity_type, name}` for every `HAS_FINDING` source. Multi-system findings render as a comma-separated list in the identity section.
   - `ksis` — ordered list of `{entity_id, code, name, description, relationship_type}` for every `RELATED_INDICATOR` target.
   - `evidence` — ordered list of `{entity_id, name, kind, description, support_kind, note, updated_relative, timestamp_tooltip}` for every `HAS_EVIDENCE` target. `timestamp_tooltip` is a pre-formatted two-line string (`Created: …` / `Updated: …`) bound to the row's Updated cell as a hover tooltip.
-- **Aggregated verdict.** `finding.verdict` is computed by walking the `HAS_EVIDENCE.support_kind` values with priority `violation > passing > informational`. The hero pill prefers this aggregated verdict over the lifecycle status (`open` / `resolved`) when evidence exists; with no evidence it falls back to the lifecycle status. This decouples the visual state of the page from the raw lifecycle field — a finding with all-passing evidence reads "Passing" in the hero rather than "Open".
+- **No aggregated verdict in v0.** The view-model does not emit a finding-level `verdict` field. The first iteration computed one from `HAS_EVIDENCE.support_kind` values, but the rule was unspec'd; both this requirement and the hero pill have been deferred until `spec-fedramp-20x-ksi-finding.md` `req-fedramp-20x-ksi-finding-verdict-rollup` (Backlog) lands. Per-edge verdict signal is still surfaced unmodified on `evidence[i].support_kind` and `ksis[i].relationship_type` for tables that render their own per-row pills.
 - **Relative-time helper.** A small Python helper renders `datetime` deltas as `just now` / `Nm ago` / `Nh ago` / `yesterday` / `Nd ago` / `MMM D` (same year) / `MMM D, YYYY` (prior years). The helper output goes to `updated_relative` and `created_relative`; the full UTC timestamps go to the `*_full` fields used as hover tooltips.
 - Default subgraph layer is `extended` so any `icon_url` or computed presentation fields surface naturally.
 - If the finding is missing or the entity_id is invalid, the panel renders an error state rather than crashing.
@@ -119,7 +119,7 @@ The profile panel loads the finding and its full one-hop neighborhood via a sing
 | req-ksi-finding-profile-data-2 | Multi-System Support | Implemented | The view-model represents `HAS_FINDING` parents as a list, not a single value. | |
 | req-ksi-finding-profile-data-3 | Edge Properties Captured | Implemented | `RELATED_INDICATOR.relationship_type`, `HAS_EVIDENCE.support_kind`, and `HAS_EVIDENCE.note` are surfaced into the view-model. | |
 | req-ksi-finding-profile-data-4 | Graceful Missing Entity | Implemented | Missing or invalid `entity_id` renders an error state rather than crashing. | |
-| req-ksi-finding-profile-data-5 | Aggregated Verdict | Implemented | `finding.verdict` is derived from `HAS_EVIDENCE.support_kind` values with priority `violation > passing > informational`; falls back to lifecycle status when no evidence exists. | |
+| req-ksi-finding-profile-data-5 | No Aggregated Verdict In v0 | Implemented | The view-model emits no finding-level `verdict` field. Per-edge verdict signal (`evidence[i].support_kind`, `ksis[i].relationship_type`) is surfaced unmodified for per-row consumers. | Pending `req-fedramp-20x-ksi-finding-verdict-rollup` |
 | req-ksi-finding-profile-data-6 | Relative Timestamps | Implemented | The view-model emits both relative (`*_relative`) and full UTC (`*_full`) timestamp strings for the finding and evidence rows. | |
 
 ---
@@ -131,28 +131,26 @@ Status: `Implemented`
 
 The top of the profile shows the finding's identity at a glance.
 
+#### Status Details
+The verdict pill that originally lived in the hero has been removed pending a documented verdict-rollup rule. See `spec-fedramp-20x-ksi-finding.md` `req-fedramp-20x-ksi-finding-verdict-rollup` (Backlog) for the open design question and the conditions for re-introducing the pill. The hero today carries the breadcrumb and the finding name only.
+
 #### Implementation
-- **Breadcrumb** — `FedRAMP 20x KSI / Findings / <finding name>` styled identically to the indicator profile's breadcrumb. The "Findings" segment is non-navigational in v0 (no findings index page yet); it stays as plain text.
+- **Breadcrumb** — `FedRAMP 20x KSI / Findings / <finding name>` styled identically to the indicator profile's breadcrumb. The "Findings" segment links to the findings index page.
 - **Hero block** with the same gradient background as the indicator profile.
 - **Name** — primary `<h1>` (the finding's `name`).
-- **Hero pill** — shows the **aggregated verdict** when evidence exists (`passing` / `violation` / `informational`), or the lifecycle status (`open` / `resolved`) when there is no evidence. Color vocabulary:
-  - `passing` / `resolved` — success / green
-  - `violation` — error / red
-  - `informational` — info / sky
-  - `open` — warning / amber
-- The hero contains no class badges (findings don't carry classes); the right side of the hero is left for the pill alone.
+- **No verdict pill in v0** — the hero's right side is empty until the verdict-rollup rule lands. The lifecycle `status` field is still authoritative on the model and queryable via the graph; it just does not surface in the hero, because surfacing it (alone) mixes lifecycle vocabulary (`open`/`resolved`) with verdict vocabulary (`passing`/`violation`/`informational`) in a single pill, which the first iteration of this panel got wrong.
+- The hero contains no class badges (findings don't carry classes).
 
 #### Development
-- The pill expresses the *current state of the finding as understood by the evidence on file*, not the raw lifecycle field. The lifecycle `open`/`resolved` value is still authoritative on the model and queryable via the graph; it only becomes visible in the hero when there's no evidence to aggregate. This decouples the visual story from the raw status field — a finding with all-passing evidence reads as "Passing" without requiring a separate lifecycle-state mutation.
+- Resist re-adding a status-only or inferred-verdict pill before the rollup rule is spec'd. The first iteration shipped a "prefer aggregated verdict over lifecycle status" rule baked into render code; that rule answered a real question but invented the policy rather than citing one. The lesson: this is platform policy, not a panel-local choice — it gets spec'd in the finding spec, then re-implemented here, then the pill comes back.
 
 #### Acceptance Criteria
 
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
 | req-ksi-finding-profile-header-1 | Name Prominent | Implemented | The finding's name is the primary visual element of the hero. | |
-| req-ksi-finding-profile-header-2 | Hero Pill | Implemented | A styled pill displays the finding's effective state with distinct colors per value. | |
-| req-ksi-finding-profile-header-3 | Breadcrumb | Implemented | A breadcrumb leads back to `/fedramp-ksi`; "Findings" is a static segment in v0. | |
-| req-ksi-finding-profile-header-4 | Verdict-Preferred Pill | Implemented | When evidence exists, the hero pill shows the aggregated verdict (`passing` / `violation` / `informational`); otherwise it shows the lifecycle status (`open` / `resolved`). | |
+| req-ksi-finding-profile-header-2 | No Verdict Pill | Implemented | The hero does not render a status or verdict pill in v0. | Pending `req-fedramp-20x-ksi-finding-verdict-rollup` |
+| req-ksi-finding-profile-header-3 | Breadcrumb | Implemented | A breadcrumb leads back to `/fedramp-ksi`; "Findings" links to the findings index. | |
 
 ---
 
@@ -170,7 +168,7 @@ A definition-list-style block of the finding's core facts (System / Systems and 
   - **Description** — the finding's `description` rendered as plain text (no markdown). Long descriptions wrap; no truncation in this section.
 - Empty descriptions render the section's row as `—` rather than collapsing — the slot is meaningful even when blank.
 - **Timestamp meta line** — a small grey footer line below the dl, format `Opened <relative> · Updated <relative>`. Each span carries the full UTC timestamp in its `title` attribute (visible on hover); a dotted underline hints that a tooltip is available. This replaced an earlier draft that used two heavy dl rows for Created / Last Updated — the timestamps stay informative but visually subordinate.
-- Status / verdict is *not* repeated here; it lives in the hero pill.
+- Status / verdict is intentionally absent from this section in v0 — the hero pill that previously carried it has been removed pending `req-fedramp-20x-ksi-finding-verdict-rollup`. Per-edge verdict signal still appears on the related-KSI and evidence tables below.
 
 #### Acceptance Criteria
 

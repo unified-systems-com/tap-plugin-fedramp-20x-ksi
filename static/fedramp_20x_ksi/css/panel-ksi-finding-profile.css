@@ -55,35 +55,8 @@
   flex-shrink: 0;
 }
 
-/* Status pills in hero */
-.finding-profile-hero .finding-status {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: capitalize;
-}
-.finding-profile-hero .finding-status--open {
-  background: rgba(250, 204, 21, 0.2);
-  color: #fde68a;
-}
-.finding-profile-hero .finding-status--resolved {
-  background: rgba(34, 197, 94, 0.2);
-  color: #86efac;
-}
-.finding-profile-hero .finding-status--passing {
-  background: rgba(34, 197, 94, 0.2);
-  color: #86efac;
-}
-.finding-profile-hero .finding-status--violation {
-  background: rgba(239, 68, 68, 0.2);
-  color: #fca5a5;
-}
-.finding-profile-hero .finding-status--informational {
-  background: rgba(56, 189, 248, 0.2);
-  color: #bae6fd;
-}
+/* Hero status / verdict pill removed pending verdict-rollup logic;
+   see spec-fedramp-20x-ksi-finding.md req-fedramp-20x-ksi-finding-verdict-rollup. */
 
 /* Sections */
 .finding-profile-section {

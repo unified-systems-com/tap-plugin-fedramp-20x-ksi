@@ -19,12 +19,10 @@
     <span class="finding-breadcrumb-current">{{ finding.name }}</span>
 </nav>
 
-{# HERO HEADER #}
+{# HERO HEADER — verdict pill removed pending verdict-rollup logic.
+   See spec-fedramp-20x-ksi-finding.md req-fedramp-20x-ksi-finding-verdict-rollup. #}
 <header class="finding-profile-hero">
     <h1 class="finding-profile-name">{{ finding.name }}</h1>
-    <div class="finding-profile-hero-meta">
-        <span class="finding-status finding-status--{{ finding_hero_pill }}">{{ finding_hero_pill }}</span>
-    </div>
 </header>
 
 {# IDENTITY SECTION #}

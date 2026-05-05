@@ -17,19 +17,9 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from tap_web.utils import safe_json
 
-# Aggregated-verdict precedence for HAS_EVIDENCE.support_kind values: any
-# violation wins; otherwise any passing wins; otherwise informational.
-_VERDICT_PRIORITY = {"violation": 3, "passing": 2, "informational": 1}
-
-
-def _aggregate_verdict(evidence_list: list[dict[str, Any]]) -> str:
-    best = ("", 0)
-    for ev in evidence_list:
-        sk = ev.get("support_kind") or ""
-        weight = _VERDICT_PRIORITY.get(sk, 0)
-        if weight > best[1]:
-            best = (sk, weight)
-    return best[0]
+# Verdict aggregation deferred — see spec-fedramp-20x-ksi-finding.md
+# req-fedramp-20x-ksi-finding-verdict-rollup (Backlog). The hero pill was
+# removed from finding_profile.html until the rollup rule is spec'd.
 
 
 # Class precedence for picking a single requirement statement when an indicator's
@@ -255,8 +245,6 @@ class KsiFindingProfilePanelType:
         ksis.sort(key=lambda k: (k["code"], k["entity_id"]))
         evidence.sort(key=lambda e: (e["support_kind"], e["name"], e["entity_id"]))
 
-        verdict = _aggregate_verdict(evidence)
-
         f_created_iso = f_ent.get("created_at")
         f_updated_iso = f_ent.get("updated_at")
         finding = {
@@ -265,23 +253,16 @@ class KsiFindingProfilePanelType:
             "summary": f_body.get("summary", ""),
             "description": f_body.get("description", ""),
             "status": f_body.get("status", ""),
-            "verdict": verdict,
             "created_full": _format_timestamp(f_created_iso),
             "updated_full": _format_timestamp(f_updated_iso),
             "created_relative": _relative_timestamp(f_created_iso),
             "updated_relative": _relative_timestamp(f_updated_iso),
         }
 
-        # Hero pill: prefer aggregated verdict (Passing / Violation / Informational)
-        # over the lifecycle status when evidence exists. Falls back to lifecycle
-        # status (open/resolved) when there is no evidence to aggregate.
-        hero_pill_value = verdict or finding["status"]
-
         system_label = "System" if len(systems) == 1 else "Systems"
 
         return {
             "finding": finding,
-            "finding_hero_pill": hero_pill_value,
             "finding_system_label": system_label,
             "finding_systems": systems,
             "finding_ksis_json": safe_json(ksis),

@@ -37,6 +37,7 @@ The immediate downstream consumer of Finding is the status-badge alert count on 
 | req-fedramp-20x-ksi-exception-edge | [Exception Linkage — `COVERS_FINDING`](#exception-linkage--covers_finding) | Implemented | Edge from an exception to the finding(s) it covers |
 | req-fedramp-20x-ksi-finding-dimension | [Dimension Membership](#dimension-membership) | Implemented | Findings and exceptions default to `compliance: fedramp-20x` while the models live in this plugin |
 | req-fedramp-20x-ksi-finding-seed | [Demo Seed Data](#demo-seed-data) | Implemented | A small set of seeded findings (including at least one with a covering exception) so downstream alert-badge work has something to count |
+| req-fedramp-20x-ksi-finding-verdict-rollup | [Verdict Rollup From Edges](#verdict-rollup-from-edges) | Backlog | A documented rule that aggregates per-edge verdict signal into a single finding-level verdict for display |
 
 ---
 
@@ -383,6 +384,57 @@ Seed bundles for cross-plugin entity references need to be authored carefully: t
 | req-fedramp-20x-ksi-finding-seed-3 | Status Variety | Implemented | Seed includes at least one finding in each of the three status values so downstream filters can be exercised. | |
 | req-fedramp-20x-ksi-finding-seed-4 | Indicator Linkage | Implemented | Every seeded finding carries exactly one `RELATED_INDICATOR` edge to a specific KSI indicator, with a valid `relationship_type` property. | |
 | req-fedramp-20x-ksi-finding-seed-5 | Exception Coverage | Implemented | At least one seeded exception with `status: active` covers at least one seeded finding via a `COVERS_FINDING` edge; the covered finding's status is `exception_granted`. | Exercises the full exception lifecycle in the demo |
+
+---
+
+### Verdict Rollup From Edges
+----
+RID: `req-fedramp-20x-ksi-finding-verdict-rollup`
+Status: `Backlog`
+
+A finding does not carry a verdict field on the model itself. Verdict signal lives on the finding's edges, in two places that share the same vocabulary (`violation`, `passing`, `informational`):
+
+- `HAS_EVIDENCE.support_kind` — verdict carried per evidence row.
+- `RELATED_INDICATOR.relationship_type` — verdict carried per linked KSI indicator.
+
+This is the deliberate "verdict-on-edge" design recorded in the seed bundles' prose: `Finding.status` stays as a pure lifecycle field (`open` / `resolved`); per-edge verdict signal is the source of truth for "passing vs violation vs informational." This requirement is the place where the *rollup rule* — how a panel collapses one or more per-edge verdict signals into a single finding-level verdict — gets specified.
+
+#### Status Details
+Backlog. The first attempt to render a hero verdict pill on the finding profile page baked an inferred rollup rule into the panel template ("`violation` > `passing` > `informational`, aggregated across both edge types, fall back to lifecycle status when neither edge carries signal"). That logic shipped briefly, then got reverted because it wasn't spec'd: it answered a real question (which pill to show on the hero) but invented the rule rather than citing one. The hero verdict pill was removed from the finding profile pending this requirement landing. See `spec-fedramp-20x-ksi-finding-profile.md` `req-fedramp-20x-ksi-finding-profile-hero` for the corresponding panel-side note.
+
+The shape of the rollup rule is the open design question. Five cases need explicit answers before this requirement can move to `Approved for Development`:
+
+1. **Both edges carry verdict signal, agreeing.** Trivially returns the agreed value.
+2. **Both edges carry verdict signal, disagreeing.** E.g. an evidence row says `passing` but the related-indicator linkage says `violation`. Which wins, and why? (Plausible rules: most-severe wins; evidence-edges win because they're the more recent observation; related-indicator wins because it's the framework-level claim.)
+3. **Only `HAS_EVIDENCE` carries verdict** (no `RELATED_INDICATOR`, or no `relationship_type` on it). Aggregate across evidence rows by precedence.
+4. **Only `RELATED_INDICATOR` carries verdict** (no `HAS_EVIDENCE` rows yet, or none with a `support_kind`). Use the indicator linkage's verdict directly.
+5. **Neither edge carries verdict signal.** What does the panel show? Falling back to lifecycle `status` mixes two different vocabularies into one pill (`open` is not a verdict); rendering nothing is honest but loses information. Either is defensible — pick one.
+
+#### Implementation
+Deferred. When this requirement is picked up:
+- Pick the rollup rule for each of the five cases above and write it down here with rationale.
+- Decide where the rule lives. Three plausible homes:
+  - **Panel-level** — each panel that needs a verdict computes it locally. Cheapest; risks drift between panels.
+  - **Service-layer helper** — a `derived_verdict(finding)` function in the plugin so every consumer gets the same answer.
+  - **Materialized field on Finding** — denormalized, kept in sync via signal/refresh. Heaviest; revisits the verdict-on-edge stance and probably wrong given the design intent.
+- Re-introduce the hero verdict pill on the finding profile (and the matching cell formatter on the findings tables) once the rule is documented.
+- Add ACIDs covering each of the five cases above.
+
+#### Development
+- Resist re-introducing the inferred rollup logic in render code without spec backing. The lesson from the first attempt: the question "which pill?" sounds local to the panel, but the *answer* is platform policy — different panels giving different answers for the same finding would erode trust faster than missing pills.
+- The five cases above are the *minimum* coverage. Additional cases (e.g. one edge type carries a verdict that isn't in the shared vocabulary, edges carrying `null`, edges with `relationship_type` outside the verdict vocabulary) need to be enumerated before code lands.
+
+#### Acceptance Criteria
+
+| ACID | Title | Status | Description | Notes |
+| --- | --- | :---: | --- | --- |
+| req-fedramp-20x-ksi-finding-verdict-rollup-1 | Rule Documented | Backlog | The rollup rule for each of the five spec'd cases is written into this requirement before code lands. | Drafted in Implementation when picked up |
+| req-fedramp-20x-ksi-finding-verdict-rollup-2 | Single Source Of Logic | Backlog | The rollup rule has exactly one home in code; multiple panels computing the same verdict differently is a regression. | Home choice is a sub-decision |
+| req-fedramp-20x-ksi-finding-verdict-rollup-3 | Hero Pill Re-Introduced | Backlog | The finding profile hero re-renders a verdict pill once the rule lands. | See `spec-fedramp-20x-ksi-finding-profile.md` `req-fedramp-20x-ksi-finding-profile-hero` |
+
+#### Future
+- Per-class verdict rollup. Today's rollup is regime-agnostic; once `ComplianceContext.fedramp_class` selection is wired into the finding profile, "violation at Class B" vs "violation at Class C" may resolve differently.
+- Explanation surface. When a panel renders a rolled-up verdict, expose *why* on hover (which edges, which precedence step won) so reviewers can audit the rollup without leaving the page.
 
 ---
 
