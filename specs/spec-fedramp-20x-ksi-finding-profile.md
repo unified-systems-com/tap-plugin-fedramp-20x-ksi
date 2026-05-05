@@ -47,21 +47,21 @@ Until then, "two Tabulator instances inside a plugin-owned panel" is the right l
 
 | RID | Name | Status | Notes |
 | --- | --- | :---: | --- |
-| req-ksi-finding-profile-panel | [Finding Profile Panel Type](#finding-profile-panel-type) | Proposed | Plugin-registered panel type for single-finding display |
-| req-ksi-finding-profile-data | [Data Loading](#data-loading) | Proposed | Gryphon hub-and-spoke query loads finding + system/KSI/evidence neighborhood |
-| req-ksi-finding-profile-header | [Hero Header](#hero-header) | Proposed | Name, status badge, breadcrumb |
-| req-ksi-finding-profile-meta | [Identity Section](#identity-section) | Proposed | System(s), description, status |
-| req-ksi-finding-profile-ksi-table | [Related KSIs Table](#related-ksis-table) | Proposed | Table of related indicators with short descriptions |
-| req-ksi-finding-profile-evidence-table | [Evidence Table](#evidence-table) | Proposed | Row-per-evidence table with click-to-expand details |
-| req-ksi-finding-profile-page | [Page and Navigation](#page-and-navigation) | Proposed | Page seeded via GRIFT; reachable from open-alerts table |
-| req-ksi-finding-profile-open-alerts-link | [Open Alerts Title Linkage](#open-alerts-title-linkage) | Proposed | Genericom open-alerts table title cell links to the finding profile |
+| req-ksi-finding-profile-panel | [Finding Profile Panel Type](#finding-profile-panel-type) | Implemented | Plugin-registered panel type for single-finding display |
+| req-ksi-finding-profile-data | [Data Loading](#data-loading) | Implemented | Gryphon hub-and-spoke query loads finding + system/KSI/evidence neighborhood |
+| req-ksi-finding-profile-header | [Hero Header](#hero-header) | Implemented | Name, status badge, breadcrumb |
+| req-ksi-finding-profile-meta | [Identity Section](#identity-section) | Implemented | System(s), description, status |
+| req-ksi-finding-profile-ksi-table | [Related KSIs Table](#related-ksis-table) | Implemented | Table of related indicators with short descriptions |
+| req-ksi-finding-profile-evidence-table | [Evidence Table](#evidence-table) | Implemented | Row-per-evidence table with click-to-expand details |
+| req-ksi-finding-profile-page | [Page and Navigation](#page-and-navigation) | Implemented | Page seeded via GRIFT; reachable from open-alerts table |
+| req-ksi-finding-profile-open-alerts-link | [Open Alerts Title Linkage](#open-alerts-title-linkage) | Implemented | Genericom open-alerts table title cell links to the finding profile |
 
 ---
 
 ### Finding Profile Panel Type
 ----
 RID: `req-ksi-finding-profile-panel`
-Status: `Proposed`
+Status: `Implemented`
 
 The finding profile is a dedicated panel type registered by the KSI plugin.
 
@@ -81,16 +81,16 @@ The finding profile is a dedicated panel type registered by the KSI plugin.
 
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
-| req-ksi-finding-profile-panel-1 | Plugin-Owned Panel Type | Proposed | The panel type class lives in the KSI plugin package. | |
-| req-ksi-finding-profile-panel-2 | Registered At Startup | Proposed | The panel type is registered in `panel_type_registry` during `AppConfig.ready()`. | |
-| req-ksi-finding-profile-panel-3 | Reads Entity ID From Query Params | Proposed | The panel reads `entity_id` from `request.GET` to identify the finding. | |
+| req-ksi-finding-profile-panel-1 | Plugin-Owned Panel Type | Implemented | The panel type class lives in the KSI plugin package. | |
+| req-ksi-finding-profile-panel-2 | Registered At Startup | Implemented | The panel type is registered in `panel_type_registry` during `AppConfig.ready()`. | |
+| req-ksi-finding-profile-panel-3 | Reads Entity ID From Query Params | Implemented | The panel reads `entity_id` from `request.GET` to identify the finding. | |
 
 ---
 
 ### Data Loading
 ----
 RID: `req-ksi-finding-profile-data`
-Status: `Proposed`
+Status: `Implemented`
 
 The profile panel loads the finding and its full one-hop neighborhood via a single gryphon hub-and-spoke query.
 
@@ -102,10 +102,12 @@ The profile panel loads the finding and its full one-hop neighborhood via a sing
   - **Outbound `RELATED_INDICATOR`** edges to KSI indicator nodes, with a `relationship_type` edge property.
   - **Outbound `HAS_EVIDENCE`** edges to evidence nodes, with `support_kind` and optional `note` edge properties.
 - The panel walks the returned subgraph in Python and builds a structured view-model:
-  - `finding` — flat dict of finding fields.
+  - `finding` — flat dict of finding fields plus computed presentation fields: aggregated `verdict`, `created_full` / `updated_full` (full UTC timestamps for hover tooltips), and `created_relative` / `updated_relative` (short human-friendly labels for inline display).
   - `systems` — ordered list of `{entity_id, entity_type, name}` for every `HAS_FINDING` source. Multi-system findings render as a comma-separated list in the identity section.
   - `ksis` — ordered list of `{entity_id, code, name, description, relationship_type}` for every `RELATED_INDICATOR` target.
-  - `evidence` — ordered list of `{entity_id, name, kind, description, support_kind, note}` for every `HAS_EVIDENCE` target.
+  - `evidence` — ordered list of `{entity_id, name, kind, description, support_kind, note, updated_relative, timestamp_tooltip}` for every `HAS_EVIDENCE` target. `timestamp_tooltip` is a pre-formatted two-line string (`Created: …` / `Updated: …`) bound to the row's Updated cell as a hover tooltip.
+- **Aggregated verdict.** `finding.verdict` is computed by walking the `HAS_EVIDENCE.support_kind` values with priority `violation > passing > informational`. The hero pill prefers this aggregated verdict over the lifecycle status (`open` / `resolved`) when evidence exists; with no evidence it falls back to the lifecycle status. This decouples the visual state of the page from the raw lifecycle field — a finding with all-passing evidence reads "Passing" in the hero rather than "Open".
+- **Relative-time helper.** A small Python helper renders `datetime` deltas as `just now` / `Nm ago` / `Nh ago` / `yesterday` / `Nd ago` / `MMM D` (same year) / `MMM D, YYYY` (prior years). The helper output goes to `updated_relative` and `created_relative`; the full UTC timestamps go to the `*_full` fields used as hover tooltips.
 - Default subgraph layer is `extended` so any `icon_url` or computed presentation fields surface naturally.
 - If the finding is missing or the entity_id is invalid, the panel renders an error state rather than crashing.
 
@@ -113,17 +115,19 @@ The profile panel loads the finding and its full one-hop neighborhood via a sing
 
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
-| req-ksi-finding-profile-data-1 | Single Gryphon Query | Proposed | Finding, systems, KSIs, and evidence are loaded in one hub-and-spoke gryphon query. | |
-| req-ksi-finding-profile-data-2 | Multi-System Support | Proposed | The view-model represents `HAS_FINDING` parents as a list, not a single value. | |
-| req-ksi-finding-profile-data-3 | Edge Properties Captured | Proposed | `RELATED_INDICATOR.relationship_type`, `HAS_EVIDENCE.support_kind`, and `HAS_EVIDENCE.note` are surfaced into the view-model. | |
-| req-ksi-finding-profile-data-4 | Graceful Missing Entity | Proposed | Missing or invalid `entity_id` renders an error state rather than crashing. | |
+| req-ksi-finding-profile-data-1 | Single Gryphon Query | Implemented | Finding, systems, KSIs, and evidence are loaded in one hub-and-spoke gryphon query. | |
+| req-ksi-finding-profile-data-2 | Multi-System Support | Implemented | The view-model represents `HAS_FINDING` parents as a list, not a single value. | |
+| req-ksi-finding-profile-data-3 | Edge Properties Captured | Implemented | `RELATED_INDICATOR.relationship_type`, `HAS_EVIDENCE.support_kind`, and `HAS_EVIDENCE.note` are surfaced into the view-model. | |
+| req-ksi-finding-profile-data-4 | Graceful Missing Entity | Implemented | Missing or invalid `entity_id` renders an error state rather than crashing. | |
+| req-ksi-finding-profile-data-5 | Aggregated Verdict | Implemented | `finding.verdict` is derived from `HAS_EVIDENCE.support_kind` values with priority `violation > passing > informational`; falls back to lifecycle status when no evidence exists. | |
+| req-ksi-finding-profile-data-6 | Relative Timestamps | Implemented | The view-model emits both relative (`*_relative`) and full UTC (`*_full`) timestamp strings for the finding and evidence rows. | |
 
 ---
 
 ### Hero Header
 ----
 RID: `req-ksi-finding-profile-header`
-Status: `Proposed`
+Status: `Implemented`
 
 The top of the profile shows the finding's identity at a glance.
 
@@ -131,50 +135,59 @@ The top of the profile shows the finding's identity at a glance.
 - **Breadcrumb** — `FedRAMP 20x KSI / Findings / <finding name>` styled identically to the indicator profile's breadcrumb. The "Findings" segment is non-navigational in v0 (no findings index page yet); it stays as plain text.
 - **Hero block** with the same gradient background as the indicator profile.
 - **Name** — primary `<h1>` (the finding's `name`).
-- **Status badge** — pill showing `open` / `resolved`. Style derived from the indicator profile status badge but with finding-specific colors:
+- **Hero pill** — shows the **aggregated verdict** when evidence exists (`passing` / `violation` / `informational`), or the lifecycle status (`open` / `resolved`) when there is no evidence. Color vocabulary:
+  - `passing` / `resolved` — success / green
+  - `violation` — error / red
+  - `informational` — info / sky
   - `open` — warning / amber
-  - `resolved` — success / green
-- The hero contains no class badges (findings don't carry classes); the right side of the hero is left for the status badge alone.
+- The hero contains no class badges (findings don't carry classes); the right side of the hero is left for the pill alone.
+
+#### Development
+- The pill expresses the *current state of the finding as understood by the evidence on file*, not the raw lifecycle field. The lifecycle `open`/`resolved` value is still authoritative on the model and queryable via the graph; it only becomes visible in the hero when there's no evidence to aggregate. This decouples the visual story from the raw status field — a finding with all-passing evidence reads as "Passing" without requiring a separate lifecycle-state mutation.
 
 #### Acceptance Criteria
 
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
-| req-ksi-finding-profile-header-1 | Name Prominent | Proposed | The finding's name is the primary visual element of the hero. | |
-| req-ksi-finding-profile-header-2 | Status Badge | Proposed | Status is displayed as a styled badge with distinct colors per value. | |
-| req-ksi-finding-profile-header-3 | Breadcrumb | Proposed | A breadcrumb leads back to `/fedramp-ksi`; "Findings" is a static segment in v0. | |
+| req-ksi-finding-profile-header-1 | Name Prominent | Implemented | The finding's name is the primary visual element of the hero. | |
+| req-ksi-finding-profile-header-2 | Hero Pill | Implemented | A styled pill displays the finding's effective state with distinct colors per value. | |
+| req-ksi-finding-profile-header-3 | Breadcrumb | Implemented | A breadcrumb leads back to `/fedramp-ksi`; "Findings" is a static segment in v0. | |
+| req-ksi-finding-profile-header-4 | Verdict-Preferred Pill | Implemented | When evidence exists, the hero pill shows the aggregated verdict (`passing` / `violation` / `informational`); otherwise it shows the lifecycle status (`open` / `resolved`). | |
 
 ---
 
 ### Identity Section
 ----
 RID: `req-ksi-finding-profile-meta`
-Status: `Proposed`
+Status: `Implemented`
 
-A definition-list-style block of the finding's core facts: System(s) and Description.
+A definition-list-style block of the finding's core facts (System / Systems and Description), with a subtle timestamp meta line below.
 
 #### Implementation
 - Rendered immediately below the hero, before the KSI table.
 - Two stacked rows of label + value:
-  - **System(s)** — comma-separated list of system names. Each name links to its entity (`/grid/<entity_id>` or whatever the standard entity-viewer URL is in this build). Order: stable by `entity_id` so refreshes don't reshuffle.
+  - **System / Systems** — label switches between singular `System` (one parent) and plural `Systems` (multiple parents). Comma-separated list of system names; each name links to its entity (`/grid/<entity_id>`). Order: stable by `entity_id` so refreshes don't reshuffle.
   - **Description** — the finding's `description` rendered as plain text (no markdown). Long descriptions wrap; no truncation in this section.
 - Empty descriptions render the section's row as `—` rather than collapsing — the slot is meaningful even when blank.
-- Status is *not* repeated here; it lives in the hero badge.
+- **Timestamp meta line** — a small grey footer line below the dl, format `Opened <relative> · Updated <relative>`. Each span carries the full UTC timestamp in its `title` attribute (visible on hover); a dotted underline hints that a tooltip is available. This replaced an earlier draft that used two heavy dl rows for Created / Last Updated — the timestamps stay informative but visually subordinate.
+- Status / verdict is *not* repeated here; it lives in the hero pill.
 
 #### Acceptance Criteria
 
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
-| req-ksi-finding-profile-meta-1 | Multi-System Comma List | Proposed | When a finding has multiple `HAS_FINDING` parents, the System(s) row shows a comma-separated list of names. | |
-| req-ksi-finding-profile-meta-2 | System Name Links | Proposed | Each system name links to the system's entity view. | |
-| req-ksi-finding-profile-meta-3 | Description Rendered | Proposed | The finding's `description` is rendered as plain text in the identity section. | |
+| req-ksi-finding-profile-meta-1 | Multi-System Comma List | Implemented | When a finding has multiple `HAS_FINDING` parents, the row shows a comma-separated list of names. | |
+| req-ksi-finding-profile-meta-2 | System Name Links | Implemented | Each system name links to the system's entity view. | |
+| req-ksi-finding-profile-meta-3 | Description Rendered | Implemented | The finding's `description` is rendered as plain text in the identity section. | |
+| req-ksi-finding-profile-meta-4 | Singular/Plural System Label | Implemented | The label reads `System` when there is one parent and `Systems` when there are multiple. | |
+| req-ksi-finding-profile-meta-5 | Timestamp Meta Line | Implemented | A subtle grey meta line below the dl displays `Opened <relative> · Updated <relative>` with full UTC timestamps in `title`-attribute tooltips. | |
 
 ---
 
 ### Related KSIs Table
 ----
 RID: `req-ksi-finding-profile-ksi-table`
-Status: `Proposed`
+Status: `Implemented`
 
 A compact table of every KSI indicator related to this finding, with their short descriptions inline so reviewers don't have to context-switch to look them up.
 
@@ -182,10 +195,10 @@ A compact table of every KSI indicator related to this finding, with their short
 - Section header: "Related Indicators".
 - Rendered as a Tabulator table, initialized from a JSON payload embedded in the panel's HTML (no separate Search call). Same library and embedded-payload pattern as the genericom open-alerts panel.
 - Layout: `fitColumns`. No pagination (KSI counts per finding are small — typical 1, structurally bounded by how many KSIs a finding can plausibly relate to).
-- Columns:
+- Columns (left-to-right):
+  - **Relationship** — `relationship_type` from the `RELATED_INDICATOR` edge property, rendered via a Tabulator formatter as a colored pill (`violation`, `passing`, `informational`, `other`). **Placed first** so it visually aligns with the Verdict column at the top-left of the Evidence table, giving the page a single column of pills running down the left edge. Color vocabulary aligned with the genericom open-alerts table's relationship pills.
   - **Code** — KSI code in monospace, formatted as a link to the indicator profile (`/fedramp-ksi/indicator?entity_id=<uuid>`). Custom Tabulator formatter producing an `<a>` element.
   - **Name** — indicator name, plain text.
-  - **Relationship** — `relationship_type` from the `RELATED_INDICATOR` edge property, rendered via a Tabulator formatter as a colored pill (`violation`, `passing`, `informational`, `other`). Color vocabulary aligned with the genericom open-alerts table's relationship pills.
   - **Description** — the indicator's `description` field, full-text wrap (`formatter: "textarea"`), no truncation in v0.
 - The table renders even when there is exactly one related indicator (do not collapse the table to a single card).
 - If the finding has zero related indicators (data anomaly), Tabulator's `placeholder` shows: "No related indicators."
@@ -194,19 +207,20 @@ A compact table of every KSI indicator related to this finding, with their short
 
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
-| req-ksi-finding-profile-ksi-table-1 | Always A Table | Proposed | Related KSIs render as a Tabulator table even when there is only one row. | |
-| req-ksi-finding-profile-ksi-table-2 | Code Links To Profile | Proposed | The KSI code cell is a link to that indicator's profile page. | |
-| req-ksi-finding-profile-ksi-table-3 | Relationship Pill | Proposed | The relationship_type renders as a colored pill consistent with the genericom open-alerts vocabulary. | |
-| req-ksi-finding-profile-ksi-table-4 | Description Inline | Proposed | The indicator's short description is shown inline in the same row. | |
-| req-ksi-finding-profile-ksi-table-5 | Empty State | Proposed | If there are zero related indicators, the Tabulator `placeholder` displays an empty-state message. | Should not occur in seeded data |
-| req-ksi-finding-profile-ksi-table-6 | Tabulator-Backed | Proposed | The table is initialized via Tabulator using the existing `tap_web/js/lib/tabulator.min.js` asset; no new vendor copy. | |
+| req-ksi-finding-profile-ksi-table-1 | Always A Table | Implemented | Related KSIs render as a Tabulator table even when there is only one row. | |
+| req-ksi-finding-profile-ksi-table-2 | Code Links To Profile | Implemented | The KSI code cell is a link to that indicator's profile page. | |
+| req-ksi-finding-profile-ksi-table-3 | Relationship Pill | Implemented | The relationship_type renders as a colored pill consistent with the genericom open-alerts vocabulary. | |
+| req-ksi-finding-profile-ksi-table-4 | Description Inline | Implemented | The indicator's short description is shown inline in the same row. | |
+| req-ksi-finding-profile-ksi-table-5 | Empty State | Implemented | If there are zero related indicators, the Tabulator `placeholder` displays an empty-state message. | Should not occur in seeded data |
+| req-ksi-finding-profile-ksi-table-6 | Tabulator-Backed | Implemented | The table is initialized via Tabulator using the existing `tap_web/js/lib/tabulator.min.js` asset; no new vendor copy. | |
+| req-ksi-finding-profile-ksi-table-7 | Relationship-First Column Order | Implemented | The Relationship pill is the leftmost column so it aligns with the Verdict column at the top-left of the Evidence table. | |
 
 ---
 
 ### Evidence Table
 ----
 RID: `req-ksi-finding-profile-evidence-table`
-Status: `Proposed`
+Status: `Implemented`
 
 A row-per-evidence table summarizing every `HAS_EVIDENCE` artifact attached to the finding, with a click-to-expand pattern that reveals the full evidence description/output.
 
@@ -214,39 +228,44 @@ A row-per-evidence table summarizing every `HAS_EVIDENCE` artifact attached to t
 - Section header: "Evidence".
 - Rendered as a Tabulator table, initialized from a JSON payload embedded in the panel's HTML (same library and embedded-payload pattern as the KSI table and the genericom open-alerts panel).
 - Layout: `fitColumns`. No pagination; per-finding evidence counts are small.
-- Columns (collapsed-row state):
-  - **Verdict** — `support_kind` from the `HAS_EVIDENCE` edge (`passing` / `violation` / `informational`), rendered via a Tabulator formatter as a colored pill.
+- Columns (collapsed-row state, left-to-right):
+  - **Verdict** — `support_kind` from the `HAS_EVIDENCE` edge (`passing` / `violation` / `informational`), rendered via a Tabulator formatter as a colored pill. **Placed first** so it visually aligns with the Relationship column at the top-left of the KSI table — both pill columns run down the same left edge of the page.
   - **Name** — evidence name, plain text.
   - **Kind** — evidence `kind` (`screenshot` / `scanner_output` / `policy_doc` / `attestation` / `log_excerpt` / `other`), rendered via a Tabulator formatter as a small monospace tag.
+  - **Updated** — relative-time label (e.g. `1h ago` / `yesterday` / `Mar 12`) right-aligned in a narrow column, rendered by a Tabulator formatter that binds the row's `timestamp_tooltip` two-line string (Created / Updated full UTC timestamps) to the cell's `title` attribute. Replaces an earlier draft that used two full-ISO timestamp columns; this single relative column is narrower, more readable, and keeps the precise timestamps one hover away.
   - **Note** — the optional `note` from the `HAS_EVIDENCE` edge, single-line truncated by Tabulator with the full text in a `title` attribute for hover.
-- Row expansion: click-to-expand is implemented via Tabulator's `rowFormatter` + a per-row click handler that toggles a detail `<div>` appended below the row's natural cell area. The detail `<div>` contains the evidence's full `description` inside a `<pre>` block with word-wrap so multi-line scanner output (e.g. raw `dig` output with leading whitespace) preserves its layout.
-- A chevron control rendered in a synthetic last column rotates 90° on expand to indicate state. Clicking anywhere on the row — not just the chevron — toggles expansion.
-- Expansion is per-row independent; multiple rows may be expanded simultaneously.
+- Row expansion: click-to-expand is implemented via a Tabulator `rowClick` event handler subscribed via `table.on("rowClick", …)` and an **external detail container** (`#finding-profile-evidence-details`) rendered as a sibling of the Tabulator mount in the panel template. On row click the handler appends a `.finding-evidence-detail` `<div>` to the external container, keyed by `data-finding-detail-for` = evidence `entity_id`; clicking the same row again removes that block. *Why external?* Tabulator manages the DOM under its `tabulator-table` element and wipes injected siblings on its internal redraws (sort, scroll, layout recalc). An external container is safe from those redraws and the only DOM touch on the row itself is a `--expanded` class for chevron rotation. Each detail block carries its own header (the evidence name) so it remains identifiable when multiple are open at once.
+- The detail `<div>` contains the evidence's full `description` inside a `<pre>` block with word-wrap so multi-line scanner output (e.g. raw `dig` output with leading whitespace) preserves its layout.
+- A chevron control rendered in a synthetic last column rotates 90° on expand via the row's `--expanded` class. Clicking anywhere on the row — not just the chevron — toggles expansion.
+- Expansion is per-row independent; multiple rows may be expanded simultaneously and stack vertically in the external container in click order.
 - No client-side fetching — descriptions are rendered into the embedded JSON payload up front and toggled via DOM class. Sizes are bounded; the seeded DNSSEC `dig` output is the expected upper bound and is small enough.
 - If the finding has zero evidence, Tabulator's `placeholder` shows: "No evidence attached."
 
 #### Development
-- Tabulator's first-class `rowFormatter` hook is the right surface for the inline detail strip; reaching for native HTML `<details>` would bypass Tabulator's row-management and cause virtual-scroll / sort glitches if those features are added later.
+- `rowClick` is subscribed via `table.on("rowClick", …)` rather than the constructor `rowClick` option — the constructor-callback path fires inconsistently when a `rowFormatter` is also defined; the event-subscription path is reliable.
+- Detail blocks live in an **external sibling container** (`#finding-profile-evidence-details`) rather than being inserted inside Tabulator's `tabulator-table` element. Tabulator wipes non-row siblings under its managed DOM on internal redraws (sort, layout recalc); an external container sidesteps that without giving up the click-to-expand UX.
 - Click handler must distinguish row-clicks from cell-clicks that should fall through (e.g. clicking the Name link in the future) — for v0 there are no in-row interactive elements, so plain row-click is fine; revisit when columns gain links.
 
 #### Acceptance Criteria
 
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
-| req-ksi-finding-profile-evidence-table-1 | Row Per Evidence | Proposed | Each evidence artifact renders as one Tabulator row. | |
-| req-ksi-finding-profile-evidence-table-2 | Verdict Pill | Proposed | The HAS_EVIDENCE.support_kind renders as a colored pill in its own column via a Tabulator formatter. | |
-| req-ksi-finding-profile-evidence-table-3 | Click-To-Expand | Proposed | Clicking the row toggles a detail strip showing the evidence description. | Implemented via Tabulator `rowFormatter` |
-| req-ksi-finding-profile-evidence-table-4 | Independent Expand | Proposed | Multiple rows may be expanded at the same time. | |
-| req-ksi-finding-profile-evidence-table-5 | Preformatted Description | Proposed | Evidence description renders inside a `<pre>` block with word-wrap so scanner output preserves layout. | |
-| req-ksi-finding-profile-evidence-table-6 | Empty State | Proposed | If the finding has no evidence, the Tabulator `placeholder` displays an empty-state message. | |
-| req-ksi-finding-profile-evidence-table-7 | Tabulator-Backed | Proposed | The table is initialized via Tabulator using the existing `tap_web/js/lib/tabulator.min.js` asset; no new vendor copy. | |
+| req-ksi-finding-profile-evidence-table-1 | Row Per Evidence | Implemented | Each evidence artifact renders as one Tabulator row. | |
+| req-ksi-finding-profile-evidence-table-2 | Verdict Pill | Implemented | The HAS_EVIDENCE.support_kind renders as a colored pill in its own column via a Tabulator formatter. | |
+| req-ksi-finding-profile-evidence-table-3 | Click-To-Expand | Implemented | Clicking the row toggles a detail strip showing the evidence description. | Detail blocks live in an external sibling container below the table; row gains `--expanded` class for chevron rotation |
+| req-ksi-finding-profile-evidence-table-4 | Independent Expand | Implemented | Multiple rows may be expanded at the same time; expanded blocks stack in the external container in click order. | |
+| req-ksi-finding-profile-evidence-table-5 | Preformatted Description | Implemented | Evidence description renders inside a `<pre>` block with word-wrap so scanner output preserves layout. | |
+| req-ksi-finding-profile-evidence-table-6 | Empty State | Implemented | If the finding has no evidence, the Tabulator `placeholder` displays an empty-state message. | |
+| req-ksi-finding-profile-evidence-table-7 | Tabulator-Backed | Implemented | The table is initialized via Tabulator using the existing `tap_web/js/lib/tabulator.min.js` asset; no new vendor copy. | |
+| req-ksi-finding-profile-evidence-table-8 | Verdict-First Column Order | Implemented | The Verdict pill is the leftmost column so it aligns with the Relationship column at the top-left of the Related Indicators table. | |
+| req-ksi-finding-profile-evidence-table-9 | Relative Updated Column | Implemented | Evidence age is shown as a single right-aligned `Updated` column with a relative-time label and a `title`-attribute tooltip carrying the full Created and Updated UTC timestamps. | |
 
 ---
 
 ### Page and Navigation
 ----
 RID: `req-ksi-finding-profile-page`
-Status: `Proposed`
+Status: `Implemented`
 
 The profile page is seeded via GRIFT and reachable by URL.
 
@@ -262,16 +281,16 @@ The profile page is seeded via GRIFT and reachable by URL.
 
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
-| req-ksi-finding-profile-page-1 | GRIFT Seeded | Proposed | Page and panel are seeded via plugin GRIFT. | |
-| req-ksi-finding-profile-page-2 | Query Param Navigation | Proposed | The page reads the finding identity from a URL query parameter. | |
-| req-ksi-finding-profile-page-3 | Single-Column Layout | Proposed | The page has a single column with the profile panel as its sole occupant. | |
+| req-ksi-finding-profile-page-1 | GRIFT Seeded | Implemented | Page and panel are seeded via plugin GRIFT. | |
+| req-ksi-finding-profile-page-2 | Query Param Navigation | Implemented | The page reads the finding identity from a URL query parameter. | |
+| req-ksi-finding-profile-page-3 | Single-Column Layout | Implemented | The page has a single column with the profile panel as its sole occupant. | |
 
 ---
 
 ### Open Alerts Title Linkage
 ----
 RID: `req-ksi-finding-profile-open-alerts-link`
-Status: `Proposed`
+Status: `Implemented`
 
 The genericom open-alerts table — currently the only place findings are listed — is updated so the title cell links to this profile page.
 
@@ -288,9 +307,9 @@ The genericom open-alerts table — currently the only place findings are listed
 
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
-| req-ksi-finding-profile-open-alerts-link-1 | Title Is A Link | Proposed | The Title column in the genericom open-alerts table renders each title as a link. | |
-| req-ksi-finding-profile-open-alerts-link-2 | Correct Target | Proposed | The link points at `/fedramp-ksi/finding?entity_id=<finding_id>`. | |
-| req-ksi-finding-profile-open-alerts-link-3 | finding_id In Row Payload | Proposed | The open-alerts `_build_rows` output includes `finding_id` for every row. | |
+| req-ksi-finding-profile-open-alerts-link-1 | Title Is A Link | Implemented | The Title column in the genericom open-alerts table renders each title as a link. | |
+| req-ksi-finding-profile-open-alerts-link-2 | Correct Target | Implemented | The link points at `/fedramp-ksi/finding?entity_id=<finding_id>`. | |
+| req-ksi-finding-profile-open-alerts-link-3 | finding_id In Row Payload | Implemented | The open-alerts `_build_rows` output includes `finding_id` for every row. | |
 
 ---
 
@@ -311,8 +330,8 @@ The genericom open-alerts table — currently the only place findings are listed
 
 | Status States |  |
 | --- | --- |
-| Proposed |  |
-| Approved for Development | Requirement is accepted and ready to be implemented |
+| Implemented |  |
+| Implemented | Requirement is accepted and ready to be implemented |
 | In Development |  |
 | Implemented |  |
 | Verified |  |

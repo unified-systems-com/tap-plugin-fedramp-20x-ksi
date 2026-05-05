@@ -9,6 +9,9 @@ class Fedramp20xKsiConfig(TapPluginConfig):
         from plugins.fedramp_20x_ksi.panels.compliance_view import (
             KsiCompliancePanelType,
         )
+        from plugins.fedramp_20x_ksi.panels.finding_profile import (
+            KsiFindingProfilePanelType,
+        )
         from plugins.fedramp_20x_ksi.panels.indicator_profile import (
             KsiIndicatorProfilePanelType,
         )
@@ -20,5 +23,8 @@ class Fedramp20xKsiConfig(TapPluginConfig):
         )
         panel_type_registry.register(
             "fedramp-20x-ksi-indicator-profile", KsiIndicatorProfilePanelType
+        )
+        panel_type_registry.register(
+            "fedramp-20x-ksi-finding-profile", KsiFindingProfilePanelType
         )
         panel_type_registry.register("kpi_strip", KpiStripPanelType)
