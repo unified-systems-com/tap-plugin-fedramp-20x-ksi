@@ -104,7 +104,7 @@
             groupStartOpen: true,
             columns: [
                 { title: "Title", field: "title", widthGrow: 1, headerSort: true, formatter: titleCellFormatter },
-                { title: "Description", field: "description", widthGrow: 3, headerSort: false, formatter: "textarea" },
+                { title: "Summary", field: "summary", widthGrow: 3, headerSort: false, formatter: "textarea" },
                 { title: "System", field: "system_name", width: 200, headerSort: true, hozAlign: "center", headerHozAlign: "center" },
                 { title: "Relationship", field: "ksi_relationship", width: 130, headerSort: true, formatter: relationshipCellFormatter, hozAlign: "center", headerHozAlign: "center" },
                 { title: "Age", field: "age_days", width: 110, headerSort: true, sorter: "number", formatter: ageCellFormatter, hozAlign: "center", headerHozAlign: "center" },

@@ -262,6 +262,7 @@ class KsiFindingProfilePanelType:
         finding = {
             "entity_id": f_ent.get("entity_id", ""),
             "name": f_ent.get("name") or f_body.get("name") or "",
+            "summary": f_body.get("summary", ""),
             "description": f_body.get("description", ""),
             "status": f_body.get("status", ""),
             "verdict": verdict,

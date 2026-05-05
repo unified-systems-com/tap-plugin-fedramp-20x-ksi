@@ -18,7 +18,7 @@ The immediate downstream consumer of Finding is the status-badge alert count on 
 
 |    |              |                                                                 |
 | :---: | ---       | ---                                                             |
-| 1. | Minimal            | v1 models only the three fields required to represent a finding: name, description, status |
+| 1. | Minimal            | v1 models only the four fields required to represent a finding: name, summary, description, status |
 | 2. | Graph-Native       | Asset linkage and indicator linkage are first-class edges, not embedded IDs |
 | 3. | Generic-By-Design  | Type slug and edge names carry no FedRAMP-specific vocabulary; promotable to a general compliance plugin without rename |
 | 4. | Lifecycle-Aware    | Findings carry an explicit status so graph queries can filter open vs. resolved |
@@ -28,7 +28,7 @@ The immediate downstream consumer of Finding is the status-badge alert count on 
 
 | RID | Name | Status | Notes |
 | --- | --- | :---: | --- |
-| req-fedramp-20x-ksi-finding-model | [Finding Model](#finding-model) | Implemented | Minimal v1 `finding` entity with name, description, status |
+| req-fedramp-20x-ksi-finding-model | [Finding Model](#finding-model) | Implemented | Minimal v1 `finding` entity with name, summary, description, status |
 | req-fedramp-20x-ksi-finding-status | [Finding Status Lifecycle](#finding-status-lifecycle) | Implemented | `open`, `resolved` |
 | req-fedramp-20x-ksi-finding-has-edge | [Asset Linkage — `HAS_FINDING`](#asset-linkage--has_finding) | Implemented | Edge from any entity to a finding it applies to |
 | req-fedramp-20x-ksi-finding-related-edge | [Indicator Linkage — `RELATED_INDICATOR`](#indicator-linkage--related_indicator) | Implemented | Edge from a finding to a KSI indicator, with a `relationship_type` property |
@@ -57,7 +57,8 @@ The `finding` entity is a TAP-managed model with a minimal field set.
 - `DEFAULT_DIMENSIONS = {"compliance": "fedramp-20x"}` — see `req-fedramp-20x-ksi-finding-dimension`.
 - Fields:
   - `name`: `CharField(max_length=255)`, required. Short human-readable label for the finding (e.g. "EC2 instance missing MFA on SSH access").
-  - `description`: `TextField(blank=True, default="")`. Longer free-form detail.
+  - `summary`: `CharField(max_length=500, blank=True, default="")`. Pithy one-sentence description of the issue suitable for table rows and quick-glance UI surfaces. Optional; falls back to empty when not authored.
+  - `description`: `TextField(blank=True, default="")`. Longer free-form detail (full context, remediation guidance, references).
   - `status`: `CharField(max_length=32)`, required, enum-validated. See `req-fedramp-20x-ksi-finding-status`.
 - `FIELD_CRUD_SCHEMA` and `FIELD_VALIDATION_SCHEMA` follow the existing KSI-plugin pattern (jsonschema-backed).
 - `CREATE_REQUIRED = ["name"]`. `status` is not in the required list because the model provides a safe default (`"open"`) and forgetful callers get a sensible value rather than a validation error.
@@ -72,7 +73,7 @@ Keep the field list honestly minimal. Any field added here will need a migration
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
 | req-fedramp-20x-ksi-finding-model-1 | Generic Slug | Implemented | `ENTITY_TYPE` is `"finding"`, not `"ksi_finding"`. | Preserves promotion-without-rename intent |
-| req-fedramp-20x-ksi-finding-model-2 | Three-Field Shape | Implemented | Model exposes exactly `name`, `description`, `status` as writable fields in v1. | |
+| req-fedramp-20x-ksi-finding-model-2 | Four-Field Shape | Implemented | Model exposes exactly `name`, `summary`, `description`, `status` as writable fields in v1. | |
 | req-fedramp-20x-ksi-finding-model-3 | Standard BaseModel Integration | Implemented | Model subclasses `BaseModel` and participates in the standard entity spine, history, and service-layer write pipeline. | |
 | req-fedramp-20x-ksi-finding-model-4 | Service-Layer Writes Only | Implemented | Application code and plugin code that creates or mutates findings does so via the service layer. | Matches TAP core architectural rule |
 

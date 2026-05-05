@@ -27,9 +27,9 @@
     width: 100%;
 }
 
-/* Description cell: allow wrap to multiple lines. */
-.tap-panel--findings-by-system .tabulator-cell[tabulator-field="description"],
-.tap-panel--findings-by-ksi .tabulator-cell[tabulator-field="description"] {
+/* Summary cell: allow wrap to multiple lines. */
+.tap-panel--findings-by-system .tabulator-cell[tabulator-field="summary"],
+.tap-panel--findings-by-ksi .tabulator-cell[tabulator-field="summary"] {
     white-space: normal;
     line-height: 1.4;
 }

@@ -25,7 +25,7 @@ def build_findings_rows(envelope: dict[str, Any]) -> list[dict[str, Any]]:
     follow the same nested shape under "entity" / "edge".
 
     Each row carries everything either panel needs:
-      finding_id, title, system_name, system_id, description,
+      finding_id, title, system_name, system_id, summary, description,
       ksi_id, ksi_code, ksi_name, ksi_relationship, created_at, age_days.
     """
     nodes_by_id: dict[str, dict[str, Any]] = {}
@@ -92,6 +92,7 @@ def build_findings_rows(envelope: dict[str, Any]) -> list[dict[str, Any]]:
                 "title": ent.get("name") or finding_body.get("name") or "",
                 "system_name": parent_ent.get("name") or parent_body.get("name") or "",
                 "system_id": parent_id or "",
+                "summary": finding_body.get("summary") or "",
                 "description": finding_body.get("description") or "",
                 "ksi_id": ksi_id,
                 "ksi_code": ksi_code,

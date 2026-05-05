@@ -32,6 +32,7 @@ class Finding(BaseModel):
 
     FIELD_CRUD_SCHEMA: ClassVar[dict[str, Any]] = {
         "name": {"type": "string", "minLength": 1},
+        "summary": {"type": "string"},
         "description": {"type": "string"},
         "status": {"type": "string", "enum": _STATUS_VALUES},
     }
@@ -41,6 +42,7 @@ class Finding(BaseModel):
             "validation": "jsonschema",
             "schema": {"type": "string", "minLength": 1},
         },
+        "summary": {"validation": "jsonschema", "schema": {"type": "string"}},
         "description": {"validation": "jsonschema", "schema": {"type": "string"}},
         "status": {
             "validation": "jsonschema",
@@ -50,6 +52,7 @@ class Finding(BaseModel):
     CREATE_REQUIRED: ClassVar[list[str]] = ["name"]
 
     name = models.CharField(max_length=255, blank=True, default="")
+    summary = models.CharField(max_length=500, blank=True, default="")
     description = models.TextField(blank=True, default="")
     status = models.CharField(max_length=16, blank=True, default="open", db_index=True)
 

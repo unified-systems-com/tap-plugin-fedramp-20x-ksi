@@ -26,6 +26,7 @@
           },
           "node": {
             "name": "missing FIPS TLS termination policy",
+            "summary": "ALB HTTPS listener is using a non-FIPS TLS security policy.",
             "description": "The Application Load Balancer is not configured with a FIPS-compliant TLS security policy on its HTTPS listener. AWS exposes FIPS 140-3 validated cryptographic modules through dedicated ALB security policies (e.g. `ELBSecurityPolicy-TLS13-1-2-FIPS-2023-04`); without one selected, TLS termination on this listener uses a non-FIPS module path. For workloads under FedRAMP / FIPS-required regimes, the listener must be reconfigured to use one of the FIPS-prefixed security policies. Reference: https://aws.amazon.com/about-aws/whats-new/2023/11/application-load-balancer-fips-tls-termination/",
             "status": "open"
           }
@@ -39,6 +40,7 @@
           },
           "node": {
             "name": "unencrypted HTTP listener exposed",
+            "summary": "Backend gunicorn serves plaintext HTTP on port 80, leaving the ALB-to-instance hop unencrypted.",
             "description": "The gunicorn process on this instance is binding port 80 and serving plaintext HTTP. Even though the upstream ALB performs TLS termination and forwards over the VPC, the request from ALB to instance traverses the network as cleartext HTTP — anything able to observe traffic between the ALB and the instance ENI sees credentials, session cookies, and request bodies in the clear.\n\nFix path: change the ALB target group / listener forwarding policy to use HTTPS to the instance and run gunicorn behind a TLS-terminating local proxy (or use gunicorn's TLS settings). Important caveat: the ALB does **not** validate the certificate presented by the backend — you can put a self-signed or expired cert on the gunicorn listener and the ALB will still happily forward to it. This is a known AWS behavior, not a bug in this finding; the certificate is only there to get the connection encrypted, not to authenticate the backend. Treat ALB→instance integrity as a network-segmentation / security-group concern, not a TLS-PKI one.",
             "status": "open"
           }
@@ -52,6 +54,7 @@
           },
           "node": {
             "name": "unencrypted HTTP listener exposed",
+            "summary": "Backend gunicorn serves plaintext HTTP on port 80, leaving the ALB-to-instance hop unencrypted.",
             "description": "The gunicorn process on this instance is binding port 80 and serving plaintext HTTP. Even though the upstream ALB performs TLS termination and forwards over the VPC, the request from ALB to instance traverses the network as cleartext HTTP — anything able to observe traffic between the ALB and the instance ENI sees credentials, session cookies, and request bodies in the clear.\n\nFix path: change the ALB target group / listener forwarding policy to use HTTPS to the instance and run gunicorn behind a TLS-terminating local proxy (or use gunicorn's TLS settings). Important caveat: the ALB does **not** validate the certificate presented by the backend — you can put a self-signed or expired cert on the gunicorn listener and the ALB will still happily forward to it. This is a known AWS behavior, not a bug in this finding; the certificate is only there to get the connection encrypted, not to authenticate the backend. Treat ALB→instance integrity as a network-segmentation / security-group concern, not a TLS-PKI one.",
             "status": "open"
           }
@@ -65,6 +68,7 @@
           },
           "node": {
             "name": "encryption at rest not configured",
+            "summary": "RDS PostgreSQL instance was provisioned without storage-level encryption at rest.",
             "description": "The PostgreSQL instance is provisioned without storage-level encryption at rest. The underlying EBS volumes (data + automated backups + snapshots) are stored unencrypted, meaning anyone with access to the raw block storage — recovered disks, copied snapshots shared cross-account, or the AWS storage substrate via misconfigured IAM — can read database contents directly without any database credential. Fix path: enable RDS storage encryption with a KMS-managed key (cannot be toggled on a running instance — requires a snapshot-restore migration to a new encrypted instance, or for self-managed Postgres, EBS-level encryption with a fresh volume). Note that this is independent of TLS-in-transit (`rds.force_ssl`) and of in-database column-level encryption — all three are separate controls.",
             "status": "open"
           }

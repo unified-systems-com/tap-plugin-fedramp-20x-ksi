@@ -38,6 +38,10 @@
                 <span class="finding-empty">—</span>
             {% endif %}
         </dd>
+        <dt>Summary</dt>
+        <dd>
+            {% if finding.summary %}{{ finding.summary }}{% else %}<span class="finding-empty">—</span>{% endif %}
+        </dd>
         <dt>Description</dt>
         <dd>
             {% if finding.description %}{{ finding.description }}{% else %}<span class="finding-empty">—</span>{% endif %}

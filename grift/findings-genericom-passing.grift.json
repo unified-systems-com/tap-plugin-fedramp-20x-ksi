@@ -26,6 +26,7 @@
           },
           "node": {
             "name": "DNSSEC enabled",
+            "summary": "DNSSEC signing on genericom.com is enabled and verifies end-to-end via an external resolver.",
             "description": "DNSSEC signing is enabled on the genericom.com Route53 hosted zone. Resolvers that validate DNSSEC will detect any forged or modified responses for genericom.com, materially reducing the blast radius of DNS-layer attacks against this domain.",
             "status": "open"
           }
