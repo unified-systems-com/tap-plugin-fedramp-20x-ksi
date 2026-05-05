@@ -34,8 +34,7 @@
     <script type="application/json"
             id="ksi-data-{{ panel.entity_id }}">{{ ksi_subgraph_json|safe }}</script>
 
-    {# Server-resolved default class from ComplianceContext (regime=fedramp_20x).
-       See spec-fedramp-20x-ksi-compliance-view.md req-ksi-compview-class-select. #}
+    {% comment %}Server-resolved default class from ComplianceContext (regime=fedramp_20x). See spec-fedramp-20x-ksi-compliance-view.md req-ksi-compview-class-select.{% endcomment %}
     <script type="application/json"
             id="ksi-default-class-{{ panel.entity_id }}">{{ ksi_default_class_json|safe }}</script>
 
