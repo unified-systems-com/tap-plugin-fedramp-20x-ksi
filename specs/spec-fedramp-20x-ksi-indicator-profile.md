@@ -29,6 +29,7 @@ The page receives the indicator's entity_id as a URL query parameter and uses a 
 | req-ksi-profile-statement | [Statement Section](#statement-section) | Proposed | Requirement text with per-class toggle for class_variants |
 | req-ksi-profile-metadata | [Metadata Section](#metadata-section) | Proposed | Controls, terms, references in a structured grid |
 | req-ksi-profile-changelog | [Change Log Section](#change-log-section) | Proposed | Timeline display of updated_log entries |
+| req-ksi-profile-findings-table | [Findings Table](#findings-table) | Implemented | Per-system table of findings related to this indicator |
 | req-ksi-profile-page | [Page and Navigation](#page-and-navigation) | Proposed | Page seeded via GRIFT, navigable from compliance view |
 
 ---
@@ -168,6 +169,52 @@ The indicator's `updated_log` displayed as a timeline of changes.
 | req-ksi-profile-changelog-2 | Reverse Chronological | Proposed | Most recent entries appear first. | |
 | req-ksi-profile-changelog-3 | Omitted When Empty | Proposed | Section is hidden if `updated_log` is empty. | |
 
+### Findings Table
+----
+RID: `req-ksi-profile-findings-table`
+Status: `Implemented`
+
+A per-system table of findings related to this indicator — one row per (system, finding) pair. Reviewers reading the indicator profile see immediately *which assets currently have outstanding work against this indicator* without navigating away.
+
+#### Implementation
+- Section header: "Findings Affecting This Indicator". Placed after the Reference section and before the Change Log.
+- Rendered as a Tabulator table initialized from a JSON payload embedded in the panel template (same pattern as the finding profile's KSI / Evidence tables and the genericom open-alerts panel). Layout: `fitColumns`, no pagination — counts are bounded by how many findings any one indicator picks up.
+- Data is loaded by an additional gryphon query the panel runs alongside the existing hub-and-spoke. The new query is two-hop with both `MATCH` clauses inner-joined:
+  - `MATCH (i)<-[r1:RELATED_INDICATOR]-(f:finding)` (findings linked to this indicator)
+  - `MATCH (s)-[r2:HAS_FINDING]->(f)` (each finding's system parents)
+  - `WHERE i.entity_id = $entity_id`
+  - Return `f, r1, r2, s` so the panel can build flat (system, finding) row pairs.
+- The two `MATCH` clauses inner-join. Gryphon's parser does not yet support `OPTIONAL MATCH`, so a finding with no `HAS_FINDING` parent does not appear in the table. v0 seed data always carries a parent system, so this is acceptable; orphan-finding handling is Future work and will land either with `OPTIONAL MATCH` support in gryphon or with a small fallback module pass that surfaces unmatched findings.
+- One row per (system, finding) pair: a finding with multiple `HAS_FINDING` parents emits multiple rows.
+- Columns (left-to-right):
+  - **Status** — finding `status` field (`open` / `resolved`) rendered as a colored pill via a Tabulator formatter. Color vocabulary: open → amber, resolved → green. Placed first to align with the Verdict / Relationship pill columns established by the finding profile pattern.
+  - **System** — the parent asset's name. Rendered as a link to the standard system page (`/grid/<entity_id>`) via a Tabulator formatter. Cell shows `—` when the finding has no `HAS_FINDING` parent.
+  - **Finding** — the finding's `name`. Rendered as a link to the finding profile (`/fedramp-ksi/finding?entity_id=<entity_id>`) via a Tabulator formatter.
+  - **Description** — finding `description`, full-text wrap (`formatter: "textarea"`).
+  - **Opened** — finding `created_at` rendered with the same relative-time helper used in the finding profile; full UTC timestamp surfaces as a `title`-attribute hover tooltip. Right-aligned, narrow column.
+- Empty state: if the indicator has zero linked findings, Tabulator's `placeholder` shows: "No findings linked to this indicator."
+- Sort: default ascending by Status (open first), tie-break by Opened (descending — newest first within a status group).
+
+#### Development
+- The two-hop gryphon (sequential `MATCH` clauses) is the same chained-MATCH pattern the genericom open-alerts panel uses, just applied to the inverse direction. Inner-join semantics are acceptable while the seed guarantees every finding carries a parent system; revisit if gryphon ships `OPTIONAL MATCH` or if real-world data introduces parent-less findings.
+- Rows are emitted as flat `(system, finding)` pairs server-side rather than as nested structures the JS would have to flatten. Mirrors the genericom open-alerts panel's flat-row contract.
+- The table reuses the same Tabulator skin and pill vocabulary as the finding profile's tables — the two profiles already share their visual vocabulary, so this section reads as a natural extension rather than a new component.
+
+#### Acceptance Criteria
+
+| ACID | Title | Status | Description | Notes |
+| --- | --- | :---: | --- | --- |
+| req-ksi-profile-findings-table-1 | Two-Hop Gryphon | Implemented | The findings table is loaded by a two-hop gryphon query (`RELATED_INDICATOR` ← finding ← `HAS_FINDING`) returning flat (system, finding) row pairs. | |
+| req-ksi-profile-findings-table-2 | Per-System Rows | Implemented | A finding with multiple `HAS_FINDING` parents emits one row per parent. Findings without any parent are not surfaced in v0 (gryphon parser limitation; tracked in Future Work). | |
+| req-ksi-profile-findings-table-3 | System Link | Implemented | The System cell links to `/grid/<entity_id>` for the parent asset when present. | |
+| req-ksi-profile-findings-table-4 | Finding Link | Implemented | The Finding cell links to `/fedramp-ksi/finding?entity_id=<entity_id>`. | |
+| req-ksi-profile-findings-table-5 | Status Pill First | Implemented | Status renders as a colored pill in the leftmost column, aligned with the verdict/relationship pill convention from the finding profile. | |
+| req-ksi-profile-findings-table-6 | Opened Relative | Implemented | The Opened column shows a relative-time label with full UTC in a hover tooltip. | |
+| req-ksi-profile-findings-table-7 | Empty State | Implemented | If the indicator has zero linked findings, the table's placeholder renders an empty-state message. | |
+| req-ksi-profile-findings-table-8 | Tabulator-Backed | Implemented | The table is initialized via Tabulator using the existing `tap_web/js/lib/tabulator.min.js` asset. | |
+
+---
+
 ### Page and Navigation
 ----
 RID: `req-ksi-profile-page`
@@ -194,8 +241,9 @@ The profile page is seeded via GRIFT and navigable from the compliance view.
 
 ## Future Work
 
+- **Orphan findings in the findings table**: Once gryphon supports `OPTIONAL MATCH` (or once a small fallback module pass is added), surface findings that lack any `HAS_FINDING` parent. Until then, the inner-joined two-hop in `req-ksi-profile-findings-table` only shows findings with at least one system parent.
 - **Evidence section**: Show per-indicator evidence coverage — linked evidence artifacts, collection status, gaps.
-- **Findings section**: Display active findings, remediation status, and assessment history.
+- **Findings section enrichments**: Add severity, remediation status (once Resolution lands), and assessment history columns to the findings table built in `req-ksi-profile-findings-table`.
 - **NIST control links**: Once `req-fedramp-20x-ksi-nist-crosswalk` is implemented, controls become clickable links to NIST control profile pages.
 - **Term links**: Link terms to a future glossary or term-node viewer.
 - **Edit mode**: Allow authorized users to annotate indicators with organization-specific notes or evidence mappings.

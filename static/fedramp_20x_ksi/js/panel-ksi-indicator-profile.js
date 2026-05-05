@@ -26,7 +26,121 @@
     }
   }
 
+  function statusPillFormatter(cell) {
+    var v = (cell.getValue() || "").toString();
+    if (!v) return "";
+    var el = document.createElement("span");
+    el.className = "ksi-finding-status-pill ksi-finding-status-pill--" + v;
+    el.textContent = v;
+    return el;
+  }
+
+  function systemLinkFormatter(cell) {
+    var row = cell.getRow().getData();
+    var name = row.system_name || "";
+    var sid = row.system_id || "";
+    if (!name && !sid) {
+      var dash = document.createElement("span");
+      dash.className = "ksi-finding-empty";
+      dash.textContent = "—";
+      return dash;
+    }
+    if (!sid) return name;
+    var a = document.createElement("a");
+    a.className = "ksi-finding-row-link";
+    a.href = "/grid/" + encodeURIComponent(sid);
+    a.textContent = name || sid;
+    return a;
+  }
+
+  function findingLinkFormatter(cell) {
+    var row = cell.getRow().getData();
+    var name = row.finding_name || "";
+    var fid = row.finding_id || "";
+    if (!fid) return name;
+    var a = document.createElement("a");
+    a.className = "ksi-finding-row-link";
+    a.href = "/fedramp-ksi/finding?entity_id=" + encodeURIComponent(fid);
+    a.textContent = name;
+    return a;
+  }
+
+  function openedFormatter(cell) {
+    var row = cell.getRow().getData();
+    var label = cell.getValue() || "";
+    if (!label) return "";
+    var el = document.createElement("span");
+    el.className = "ksi-finding-opened";
+    el.textContent = label;
+    if (row.opened_full) el.title = row.opened_full;
+    return el;
+  }
+
+  function initFindingsTable() {
+    var mount = document.getElementById("ksi-profile-findings-table");
+    var dataEl = document.getElementById("ksi-profile-findings");
+    if (!mount || !dataEl) return;
+    if (mount.dataset.tabulatorInit === "1") return;
+    if (typeof Tabulator === "undefined") return;
+    var rows;
+    try {
+      rows = JSON.parse(dataEl.textContent || "[]");
+    } catch (e) {
+      console.error("[ksi-profile-findings] payload parse failed", e);
+      return;
+    }
+    new Tabulator(mount, {
+      data: rows,
+      layout: "fitColumns",
+      placeholder: "No findings linked to this indicator.",
+      columns: [
+        {
+          title: "Status",
+          field: "finding_status",
+          width: 120,
+          headerSort: true,
+          formatter: statusPillFormatter,
+          hozAlign: "center",
+          headerHozAlign: "center",
+        },
+        {
+          title: "System",
+          field: "system_name",
+          width: 200,
+          headerSort: true,
+          formatter: systemLinkFormatter,
+        },
+        {
+          title: "Finding",
+          field: "finding_name",
+          width: 240,
+          headerSort: true,
+          formatter: findingLinkFormatter,
+        },
+        {
+          title: "Description",
+          field: "finding_description",
+          widthGrow: 2,
+          headerSort: false,
+          formatter: "textarea",
+        },
+        {
+          title: "Opened",
+          field: "opened_relative",
+          width: 110,
+          headerSort: true,
+          formatter: openedFormatter,
+          hozAlign: "right",
+          headerHozAlign: "right",
+        },
+      ],
+    });
+    mount.dataset.tabulatorInit = "1";
+  }
+
   function initProfile() {
+    initFindingsTable();
+
     // Render **Optional:** tag on the statement text regardless of class variants.
     var statementEl = document.querySelector(".ksi-profile-statement-text");
     if (statementEl) {

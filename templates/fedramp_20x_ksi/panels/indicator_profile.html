@@ -103,6 +103,15 @@
 {% endif %}
 
 {# ================================================================ #}
+{# FINDINGS AFFECTING THIS INDICATOR                                #}
+{# ================================================================ #}
+<section class="ksi-profile-section">
+    <h2 class="ksi-profile-section-title">Findings Affecting This Indicator</h2>
+    <div id="ksi-profile-findings-table" class="ksi-profile-findings-table"></div>
+</section>
+<script type="application/json" id="ksi-profile-findings">{{ ksi_findings_json|safe }}</script>
+
+{# ================================================================ #}
 {# CHANGE LOG                                                       #}
 {# ================================================================ #}
 {% if ksi.updated_log %}

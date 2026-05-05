@@ -9,9 +9,49 @@ returns the indicator and its parent theme in one pass.
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from tap_web.utils import safe_json
+
+
+def _parse_iso(iso: str | None) -> datetime | None:
+    if not iso:
+        return None
+    try:
+        dt = datetime.fromisoformat(iso)
+    except (ValueError, TypeError):
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def _format_timestamp_full(iso: str | None) -> str:
+    dt = _parse_iso(iso)
+    return dt.strftime("%Y-%m-%d %H:%M UTC") if dt else ""
+
+
+def _relative_timestamp(iso: str | None) -> str:
+    dt = _parse_iso(iso)
+    if dt is None:
+        return ""
+    now = datetime.now(timezone.utc)
+    seconds = (now - dt).total_seconds()
+    if seconds < 60:
+        return "just now"
+    if seconds < 3600:
+        return f"{int(seconds // 60)}m ago"
+    if seconds < 86400:
+        return f"{int(seconds // 3600)}h ago"
+    days = int(seconds // 86400)
+    if days == 1:
+        return "yesterday"
+    if days < 7:
+        return f"{days}d ago"
+    if dt.year == now.year:
+        return dt.strftime("%b %-d")
+    return dt.strftime("%b %-d, %Y")
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
@@ -35,9 +75,11 @@ class KsiIndicatorProfilePanelType:
     label: ClassVar[str] = "FedRAMP 20x KSI Indicator Profile"
     view: ClassVar[str] = "fedramp_20x_ksi/panels/indicator_profile.html"
     css: ClassVar[list[str]] = [
+        "tap_web/css/lib/tabulator.min.css",
         "fedramp_20x_ksi/css/panel-ksi-indicator-profile.css",
     ]
     js: ClassVar[list[str]] = [
+        "tap_web/js/lib/tabulator.min.js",
         "fedramp_20x_ksi/js/panel-ksi-indicator-profile.js",
     ]
     config_defaults: ClassVar[dict[str, Any]] = {}
@@ -142,6 +184,8 @@ class KsiIndicatorProfilePanelType:
         for c in ksi["classes"]:
             class_info.append({"key": c, "label": CLASS_LABELS.get(c, c.upper())})
 
+        findings_rows = _load_findings_rows(entity_id)
+
         return {
             "ksi": ksi,
             "ksi_display_statement": display_statement,
@@ -149,5 +193,131 @@ class KsiIndicatorProfilePanelType:
             "ksi_variants_json": (
                 safe_json(ksi["class_variants"]) if has_variants else "null"
             ),
+            "ksi_findings_json": safe_json(findings_rows),
+            "ksi_findings_count": len(findings_rows),
             "ksi_error": None,
         }
+
+
+def _load_findings_rows(indicator_entity_id: str) -> list[dict[str, Any]]:
+    """Two-hop query: findings linked to this indicator + their HAS_FINDING parents.
+
+    Returns flat (system, finding) row pairs. A finding with multiple parents
+    emits multiple rows; a finding with none emits a single row with an empty
+    system cell. Sorted with open findings first, newest within status group.
+    """
+    try:
+        from tap_grid.models import Search
+        from tap_grid.search import execute_search
+
+        search = Search(
+            search_type="gryphon",
+            root="node",
+            name="ksi-indicator-findings",
+            definition={
+                "query": [
+                    "MATCH (i)<-[r1:RELATED_INDICATOR]-(f:finding)",
+                    "MATCH (s)-[r2:HAS_FINDING]->(f)",
+                    "WHERE i.entity_id = $entity_id",
+                    "RETURN f, r1, r2, s",
+                ]
+            },
+            default_limit=500,
+            max_limit=2000,
+        )
+        result = execute_search(
+            search, inputs={"entity_id": indicator_entity_id}, layer="extended"
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception(
+            "KSI indicator findings query failed for %s", indicator_entity_id
+        )
+        return []
+
+    envelope = result["results"] if "results" in result else result
+    nodes = envelope.get("nodes", [])
+    edges = envelope.get("edges", [])
+
+    nodes_by_id: dict[str, dict[str, Any]] = {}
+    for n in nodes:
+        ent = n.get("entity") or {}
+        eid = ent.get("entity_id")
+        if eid:
+            nodes_by_id[eid] = n
+
+    # Map finding_id -> [parent_system_id, ...] from HAS_FINDING edges.
+    parents_by_finding: dict[str, list[str]] = {}
+    for edge in edges:
+        ebody = edge.get("edge") or {}
+        if ebody.get("edge_type") != "HAS_FINDING":
+            continue
+        fid = ebody.get("to_entity_id")
+        sid = ebody.get("from_entity_id")
+        if fid and sid:
+            parents_by_finding.setdefault(fid, []).append(sid)
+
+    # Walk RELATED_INDICATOR edges that target this indicator to find linked findings.
+    finding_ids: list[str] = []
+    seen_findings: set[str] = set()
+    for edge in edges:
+        ebody = edge.get("edge") or {}
+        if ebody.get("edge_type") != "RELATED_INDICATOR":
+            continue
+        if ebody.get("to_entity_id") != indicator_entity_id:
+            continue
+        fid = ebody.get("from_entity_id")
+        if fid and fid not in seen_findings:
+            seen_findings.add(fid)
+            finding_ids.append(fid)
+
+    rows: list[dict[str, Any]] = []
+    for fid in finding_ids:
+        f_node = nodes_by_id.get(fid)
+        if f_node is None:
+            continue
+        f_ent = f_node.get("entity") or {}
+        f_body = f_node.get("node") or {}
+        f_name = f_ent.get("name") or f_body.get("name") or ""
+        f_status = f_body.get("status", "")
+        f_desc = f_body.get("description", "")
+        f_created_iso = f_ent.get("created_at")
+        opened_relative = _relative_timestamp(f_created_iso)
+        opened_full = _format_timestamp_full(f_created_iso)
+
+        parent_ids = parents_by_finding.get(fid, [])
+        if not parent_ids:
+            rows.append(
+                {
+                    "finding_id": fid,
+                    "finding_name": f_name,
+                    "finding_status": f_status,
+                    "finding_description": f_desc,
+                    "system_id": "",
+                    "system_name": "",
+                    "opened_relative": opened_relative,
+                    "opened_full": opened_full,
+                }
+            )
+            continue
+        for sid in parent_ids:
+            s_node = nodes_by_id.get(sid) or {}
+            s_ent = s_node.get("entity") or {}
+            s_body = s_node.get("node") or {}
+            rows.append(
+                {
+                    "finding_id": fid,
+                    "finding_name": f_name,
+                    "finding_status": f_status,
+                    "finding_description": f_desc,
+                    "system_id": sid,
+                    "system_name": s_ent.get("name") or s_body.get("name") or "",
+                    "opened_relative": opened_relative,
+                    "opened_full": opened_full,
+                }
+            )
+
+    # Open first; newest within status group. Two-pass stable sort: secondary
+    # key first (created desc), then primary (status open before resolved).
+    rows.sort(key=lambda r: r["opened_full"], reverse=True)
+    rows.sort(key=lambda r: 0 if r["finding_status"] == "open" else 1)
+    return rows
