@@ -1,11 +1,11 @@
-/* KPI Strip Panel — horizontal row of headline metric tiles. */
+/* Finding Strip Panel — horizontal row of compliance-finding tiles. */
 
-.tap-kpi-strip {
+.tap-finding-strip {
     display: flex;
     gap: 0.75rem;
 }
 
-.tap-kpi-tile {
+.tap-finding-strip-tile {
     flex: 1 1 0;
     display: flex;
     align-items: center;
@@ -18,19 +18,19 @@
     min-height: 64px;
 }
 
-.tap-kpi-tile__dot {
+.tap-finding-strip-tile__dot {
     width: 0.625rem;
     height: 0.625rem;
     border-radius: 9999px;
     flex-shrink: 0;
 }
 
-.tap-kpi-tile__body {
+.tap-finding-strip-tile__body {
     flex: 1 1 auto;
     min-width: 0;
 }
 
-.tap-kpi-tile__label {
+.tap-finding-strip-tile__label {
     font-size: 0.7rem;
     font-weight: 600;
     letter-spacing: 0.12em;
@@ -38,13 +38,13 @@
     color: #64748b; /* slate-500 */
 }
 
-.tap-kpi-tile__hint {
+.tap-finding-strip-tile__hint {
     font-size: 0.75rem;
     color: #94a3b8; /* slate-400 */
     margin-top: 0.125rem;
 }
 
-.tap-kpi-tile__value {
+.tap-finding-strip-tile__value {
     font-size: 1.875rem;
     font-weight: 600;
     color: #1e293b; /* slate-800 */
@@ -53,13 +53,13 @@
     letter-spacing: -0.01em;
 }
 
-.tap-kpi-tile__error {
+.tap-finding-strip-tile__error {
     font-size: 0.75rem;
     color: #dc2626; /* red-600 */
     font-style: italic;
 }
 
-.tap-kpi-strip--empty {
+.tap-finding-strip--empty {
     font-size: 0.875rem;
     color: #94a3b8;
     font-style: italic;

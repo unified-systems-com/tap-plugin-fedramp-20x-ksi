@@ -1,9 +1,9 @@
-"""KPI Strip Panel — horizontal strip of headline metrics.
+"""Finding Strip Panel — horizontal strip of compliance-finding tiles.
 
 Renders one tile per entry in panel.config["tiles"]. Each tile runs a
-gryphon query at request time and shows a single numeric value drawn
-from the named field of the first returned row (or summed across rows
-when mode="sum").
+gryphon query at request time and shows a single integer drawn from the
+named field of the first returned row (or summed across rows when
+mode="sum").
 
 Tile schema (per tile):
   label        - tile heading (uppercase small caps in v0)
@@ -14,11 +14,8 @@ Tile schema (per tile):
                  (sum value_field across all returned rows)
   hint         - optional secondary line under the label
 
-The default search shipped with this plugin (Open Findings Per Entity)
-is the canonical alert source — its per-entity rows can be summed by
-setting `value_field: "count", mode: "sum"`.
-
-Display-only in v0; click-through is a follow-on.
+Display-only in v0; click-through is a follow-on. See
+spec-fedramp-20x-ksi-finding-strip.md for the full contract.
 """
 
 from __future__ import annotations
@@ -34,11 +31,11 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class KpiStripPanelType:
-    slug = "kpi_strip"
-    label = "KPI Strip"
-    view = "fedramp_20x_ksi/panels/kpi_strip.html"
-    css: list[str] = ["fedramp_20x_ksi/css/kpi_strip.css"]
+class FindingStripPanelType:
+    slug = "finding_strip"
+    label = "Finding Strip"
+    view = "fedramp_20x_ksi/panels/finding_strip.html"
+    css: list[str] = ["fedramp_20x_ksi/css/finding_strip.css"]
     config_defaults: dict[str, Any] = {"tiles": []}
 
     @classmethod
@@ -67,7 +64,7 @@ class KpiStripPanelType:
                 elif rows:
                     value = rows[0].get(value_field)
             except Exception as exc:  # noqa: BLE001
-                logger.exception("KPI tile '%s' query failed", label)
+                logger.exception("Finding Strip tile '%s' query failed", label)
                 error = str(exc)
 
             rendered.append(
@@ -80,4 +77,4 @@ class KpiStripPanelType:
                 }
             )
 
-        return {"kpi_tiles": rendered}
+        return {"finding_strip_tiles": rendered}
