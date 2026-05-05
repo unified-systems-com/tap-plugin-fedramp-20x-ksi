@@ -33,7 +33,7 @@
         <dt>{{ finding_system_label }}</dt>
         <dd>
             {% if finding_systems %}
-                {% for s in finding_systems %}<a href="/grid/{{ s.entity_id }}" class="finding-system-link">{{ s.name|default:s.entity_id }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}
+                {% for s in finding_systems %}<span class="finding-system-name">{{ s.name|default:s.entity_id }}</span>{% if not forloop.last %}, {% endif %}{% endfor %}
             {% else %}
                 <span class="finding-empty">—</span>
             {% endif %}

@@ -32,6 +32,41 @@ def _aggregate_verdict(evidence_list: list[dict[str, Any]]) -> str:
     return best[0]
 
 
+# Class precedence for picking a single requirement statement when an indicator's
+# requirement varies by class (the FedRAMP catalog uses Shape B: per-class
+# statements under varies_by_class). We prefer Class C (High impact) since it is
+# the strictest applicable variant, then B, A, D. Indicators with a direct
+# top-level `description` (Shape A) skip this fallback path.
+_CLASS_PRECEDENCE = ("c", "b", "a", "d")
+
+
+def _ksi_description(ksi_body: dict[str, Any]) -> str:
+    """Return the indicator's requirement text, falling back to class_variants
+    when the top-level `description` is empty. See refresh.py / req-fedramp-20x-ksi-*
+    for the upstream Shape A vs Shape B distinction."""
+    direct = (ksi_body.get("description") or "").strip()
+    if direct:
+        return direct
+    variants = ksi_body.get("class_variants") or {}
+    if not isinstance(variants, dict):
+        return ""
+    for cls in _CLASS_PRECEDENCE:
+        entry = variants.get(cls)
+        if not isinstance(entry, dict):
+            continue
+        statement = (entry.get("statement") or "").strip()
+        if statement:
+            return statement
+    # Last resort: any class statement we can find.
+    for entry in variants.values():
+        if not isinstance(entry, dict):
+            continue
+        statement = (entry.get("statement") or "").strip()
+        if statement:
+            return statement
+    return ""
+
+
 def _parse_iso(iso: str | None) -> datetime | None:
     if not iso:
         return None
@@ -188,7 +223,7 @@ class KsiFindingProfilePanelType:
                         "entity_id": ksi_ent.get("entity_id", ""),
                         "code": ksi_body.get("code", ""),
                         "name": ksi_ent.get("name") or ksi_body.get("name") or "",
-                        "description": ksi_body.get("description", ""),
+                        "description": _ksi_description(ksi_body),
                         "relationship_type": props.get("relationship_type", ""),
                     }
                 )

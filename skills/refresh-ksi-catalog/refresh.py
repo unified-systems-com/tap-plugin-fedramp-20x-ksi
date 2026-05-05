@@ -354,6 +354,38 @@ def check_character_classes(source: dict[str, Any], bag: FlagBag) -> None:
             return
 
 
+def check_indicator_requirement_text(source: dict[str, Any], bag: FlagBag) -> None:
+    """Block emission when any KSI indicator carries no requirement text in any form.
+
+    Each indicator must have at least one of:
+      - a direct `statement` field, OR
+      - at least one non-empty `varies_by_class.<class>.statement` field.
+
+    An indicator with neither is malformed: there is no requirement text for any
+    consumer to render, regardless of how the consumer chooses to project the
+    data. Both the direct-statement and the per-class-statement shapes are valid
+    in the upstream FedRAMP catalog and either satisfies this check.
+    """
+    ksi_section = source.get("KSI", {})
+    for theme_key, theme in ksi_section.items():
+        for ind_code, indicator in theme.get("indicators", {}).items():
+            statement = (indicator.get("statement") or "").strip()
+            if statement:
+                continue
+            varies = indicator.get("varies_by_class")
+            has_class_statement = isinstance(varies, dict) and any(
+                isinstance(v, dict) and (v.get("statement") or "").strip()
+                for v in varies.values()
+            )
+            if not has_class_statement:
+                bag.add(
+                    "block",
+                    "NO_REQUIREMENT_TEXT",
+                    f"Indicator '{ind_code}' (theme '{theme_key}') has neither a direct "
+                    "statement nor any non-empty class-variant statement.",
+                )
+
+
 def check_code_formats(source: dict[str, Any], bag: FlagBag) -> None:
     # Source keys inside "KSI" are 3-letter short names; the canonical KSI code
     # is the theme's "id" field. Check that instead.
@@ -762,6 +794,7 @@ def run(dry_run: bool, output_format: str) -> int:
         return _finalize(bag, result, None, None, output_format)
 
     check_code_formats(source, bag)
+    check_indicator_requirement_text(source, bag)
     run_denylist_on_ksi(source, safety, bag)
     if bag.has_block:
         return _finalize(bag, result, None, None, output_format)
