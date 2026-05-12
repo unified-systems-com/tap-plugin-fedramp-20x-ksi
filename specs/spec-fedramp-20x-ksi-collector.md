@@ -6,7 +6,9 @@ This spec defines the runtime collector that pulls the FedRAMP 20x KSI catalog f
 
 It supersedes the **authorship-tooling approach** previously documented in `spec-fedramp-20x-ksi-v0.md` (`req-fedramp-20x-ksi-refresh` + related): a CI-generated wave shipped inside the plugin repo via a nightly GitHub Action and a 974-line `skills/refresh-ksi-catalog/refresh.py` tool. That path is being fully deprecated and removed. The plugin has no current users, so there is no migration concern and no transitional dual path.
 
-The new architecture inverts the locus of catalog collection from **plugin authoring time** to **installation runtime**. A local TAP installation collects, validates, diffs, and merges catalog content directly into its own grid, with every run observable as an on-grid `CollectionJob`. The plugin's role narrows to: ship the models, edges, dimensions, and seed waves needed for a cold-start install; everything after first install is collector-driven.
+The new architecture inverts the locus of catalog collection from **plugin authoring time** to **installation runtime**. A local TAP installation collects, validates, diffs, and merges catalog content directly into its own grid, with every run observable as an on-grid `CollectionJob`. The plugin's role narrows to: ship the models, edges, dimensions, and a single current-time seed file needed for a cold-start install; everything after first install is collector-driven.
+
+v0 deliberately uses HTTPS-only fetch from the upstream raw content URL — not a git clone. This is a short-term simplification, not a long-term posture; it costs us cryptographic provenance (commit signatures, ancestor-of-last-known-SHA verification, author/email visibility) in exchange for fast delivery. A future `GitCollectorBase` abstraction (see [Future Work](#future-work)) will get the provenance chain back and is expected to land soon. Until then the v0 collector compensates with paranoid content-level safety checks — every flag is block-class, no warn tier. The full trust-model caveat is in [Runtime Safety Model](#runtime-safety-model).
 
 Long-term — likely after `tap_cares` emitters land — a complementary emitter will close the loop by pushing local-instance updates back to the FedRAMP/rules repo, making a local TAP installation the canonical authoring path for the public catalog. That is explicitly out of scope for v0.
 
@@ -17,8 +19,7 @@ This spec inherits the catalog vocabulary (Theme, Indicator, Certification Class
 - **Collector** — the on-grid `Collector` node registered by `tap_cares.registry`; the entity that the scheduler / manual invocation targets.
 - **Collection Run** — one invocation of the collector, materialized as a `CollectionJob` on the grid.
 - **Pinned schema** — the byte-exact copy of the FedRAMP consolidated-rules JSON Schema that the collector validates fetched upstream content against. Lives in the plugin source tree; updating it requires a reviewed PR.
-- **Block flag** — a safety violation severe enough to halt the run before any grid mutation.
-- **Warn flag** — a safety concern that is logged but does not halt the run.
+- **Block flag** — a safety violation; in v0 every safety flag is block-class. Halts the run before any grid mutation.
 
 ## Goals
 
@@ -38,7 +39,7 @@ This spec inherits the catalog vocabulary (Theme, Indicator, Certification Class
 | req-fedramp-20x-ksi-collector-class | [Collector Class](#collector-class) | Proposed | `KSICollector(CollectorBase)` registered at AppConfig.ready() |
 | req-fedramp-20x-ksi-collector-fetch | [Upstream Fetch](#upstream-fetch) | Proposed | HTTPS fetch from raw.githubusercontent.com |
 | req-fedramp-20x-ksi-collector-pin | [Pinned Schema and UUID Namespace](#pinned-schema-and-uuid-namespace) | Proposed | Schema + UUIDv5 namespace ported from refresh.py's pinned/ into plugin source |
-| req-fedramp-20x-ksi-collector-safety | [Runtime Safety Model](#runtime-safety-model) | Proposed | Block / warn flags applicable at runtime; CI-specific checks dropped |
+| req-fedramp-20x-ksi-collector-safety | [Runtime Safety Model](#runtime-safety-model) | Proposed | All flags block; CI-specific provenance checks dropped (recovered by future git collector base) |
 | req-fedramp-20x-ksi-collector-diff | [Live Diff Against Grid](#live-diff-against-grid) | Proposed | Prior state read from local grid; not from replayed waves |
 | req-fedramp-20x-ksi-collector-grift | [GRIFT Batch Output](#grift-batch-output) | Proposed | One batch per run via `submit_collector_grift`; `description_json` carries collection-v0 metadata |
 | req-fedramp-20x-ksi-collector-mass-deletion | [Mass-Deletion Guard](#mass-deletion-guard) | Proposed | >10% deprecation ratio aborts the run as a block flag |
@@ -143,9 +144,26 @@ Updating either file is a deliberate, reviewed code change. The collector does n
 RID: `req-fedramp-20x-ksi-collector-safety`
 Status: `Proposed`
 
-The safety check set is a deliberate subset of the existing `req-fedramp-20x-ksi-safety` model. CI-specific checks (commit metadata, submodule integrity, signing) are dropped because they don't apply to a runtime HTTPS fetch; the deterministic content-shape checks survive.
+The safety check set is a deliberate subset of the existing `req-fedramp-20x-ksi-safety` model, adapted to runtime context. **Every check is block-class.** The previous warn / block distinction is collapsed: anything the safety model flags fails the run, period. The grid is live; we accept the cost of strictness over the risk of a missed signal slipping through as a "warning."
 
-#### Retained checks (block-class)
+#### Trust model caveat
+
+HTTPS-only fetch (`req-fedramp-20x-ksi-collector-fetch`) deliberately does **not** carry git-level provenance. We have:
+
+- TLS to GitHub's raw content host
+- A pinned URL (host + path)
+
+We do **not** have:
+
+- A cryptographic chain of trust through commit signatures
+- Ancestor-of-last-known-SHA verification against the upstream history
+- Per-commit author/email/sign visibility
+
+If an attacker compromises GitHub's serving infrastructure, our DNS, or the upstream branch (e.g., force-pushes a poisoned commit), the content-level safety checks listed below are the only thing standing between bad upstream content and our grid. They have to carry that weight without help. Hence the paranoid posture (every flag is block) and the prominence of the future git-collector-base abstraction in [Future Work](#future-work) — that gets the provenance chain back.
+
+#### Block-class checks
+
+All flags abort the run before `submit_collector_grift` is called. The collector records each flag via `tap_cares.results.record_error` so the failing job's `results["error"]` carries the full structured detail.
 
 | Code | Trigger |
 | --- | --- |
@@ -153,28 +171,23 @@ The safety check set is a deliberate subset of the existing `req-fedramp-20x-ksi
 | `UNKNOWN_FIELD` | Fetched content contains a key not declared in the pinned schema's `properties`. |
 | `STRUCTURAL_CAP` | Catalog exceeds size caps: total bytes > 10 MiB, > 20 themes, > 100 indicators per theme, > 100 KiB per string field, > 200 items per array. |
 | `CHARACTER_CLASS` | Any string field contains a Unicode BiDi override character or a control character other than `\t` / `\n`. |
+| `DENYLIST_PHRASE` | A string field matches the safety denylist (prompt-injection heuristics). Promoted from warn → block per the paranoid-posture decision. |
+| `OUTLIER_STRING_LENGTH` | A string field is dramatically longer than the field's historical norm. Promoted from warn → block per the paranoid-posture decision. |
 | `MASS_DELETION` | Diff would deprecate > 10% of live indicators in one run (see `req-fedramp-20x-ksi-collector-mass-deletion`). |
 | `UPSTREAM_OVERSIZED` | Fetch body > 10 MiB (see `req-fedramp-20x-ksi-collector-fetch`). |
 | `UPSTREAM_BAD_CONTENT_TYPE` | Non-JSON content-type (see `req-fedramp-20x-ksi-collector-fetch`). |
 
-#### Retained checks (warn-class)
-
-| Code | Trigger |
-| --- | --- |
-| `DENYLIST_PHRASE` | A string field matches the safety denylist (prompt-injection heuristics). |
-| `OUTLIER_STRING_LENGTH` | A string field is dramatically longer than the field's historical norm. |
-
-Warn-class flags do **not** halt the run. They are recorded in the run's GRIFT batch `description_json.safety` array. Today's `CollectionJob` model doesn't carry warning detail; the lightweight surface is the `description_json`. Richer in-run status/log emission is tracked in `tap_cares` backlog (`req-tap-cares-collector-job-logs`).
-
 #### Dropped checks
+
+Provenance / commit-history checks from the old refresh tool that have no runtime analogue under HTTPS fetch:
 
 | Code | Why dropped |
 | --- | --- |
-| `INTEGRITY_REWIND` | No submodule pointer to compare against; we fetch live state, not a pointer advance. |
-| `ORIGIN_MISMATCH` (git URL) | We're fetching from a pinned HTTPS URL; the host/path *is* the origin check. |
-| `commit_author_drift` (warn) | No commit log in a live JSON fetch. |
-| `low_quality_commit_message` (warn) | Same. |
-| `signed` / `verified` warnings | Same. |
+| `INTEGRITY_REWIND` | No submodule pointer to compare against; we fetch live state, not a pointer advance. Comes back with the future git collector base class. |
+| `ORIGIN_MISMATCH` (git URL) | We're fetching from a pinned HTTPS URL; the host/path *is* the origin check. Comes back with the future git collector base class. |
+| `commit_author_drift` | No commit log in a live JSON fetch. Comes back with the future git collector base class. |
+| `low_quality_commit_message` | Same. |
+| `signed` / `verified` checks | Same. |
 
 The safety denylist content moves from `skills/refresh-ksi-catalog/safety/denylist.json` to `plugins/fedramp_20x_ksi/collectors/safety/denylist.json` byte-for-byte.
 
@@ -182,11 +195,13 @@ The safety denylist content moves from `skills/refresh-ksi-catalog/safety/denyli
 
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
-| req-fedramp-20x-ksi-collector-safety-1 | Block Flags Halt | Proposed | Any retained block-class flag aborts the run before `submit_collector_grift` is called. | |
-| req-fedramp-20x-ksi-collector-safety-2 | Job Marked FAILED | Proposed | A block flag sets `CollectionJob.status = FAILED` and writes a summary to `error_summary`. | |
-| req-fedramp-20x-ksi-collector-safety-3 | Warn Flags Recorded | Proposed | Warn-class flags appear in the submitted GRIFT batch's `description_json.safety` array. | |
-| req-fedramp-20x-ksi-collector-safety-4 | Denylist Ported | Proposed | The existing safety denylist content is moved into the plugin's `collectors/safety/` directory. | |
-| req-fedramp-20x-ksi-collector-safety-5 | Dropped Checks Documented | Proposed | CI-specific checks (integrity rewind, origin URL, commit metadata) are not implemented and are documented as not-applicable. | |
+| req-fedramp-20x-ksi-collector-safety-1 | All Flags Block | Proposed | Every flag in the table above is block-class. There is no warn tier in v0. | |
+| req-fedramp-20x-ksi-collector-safety-2 | Block Halts Before Submission | Proposed | Any block flag aborts the run before `submit_collector_grift` is called. No partial submission, no half-imported state. | |
+| req-fedramp-20x-ksi-collector-safety-3 | Structured Error Capture | Proposed | The collector records every flag via `tap_cares.results.record_error(job, site, code, message, context=...)`. The failing `CollectionJob.results["error"]` carries one entry per flag raised. | |
+| req-fedramp-20x-ksi-collector-safety-4 | Terminal Summary | Proposed | The collector sets `CollectionJob.error_summary` to a one-line description of the highest-severity flag for at-a-glance display. | |
+| req-fedramp-20x-ksi-collector-safety-5 | Denylist Ported | Proposed | The existing safety denylist content is moved into the plugin's `collectors/safety/` directory byte-for-byte. | |
+| req-fedramp-20x-ksi-collector-safety-6 | Trust Model Documented | Proposed | The spec explicitly states the HTTPS-only trust model and its limitations relative to a future git-backed fetch. | |
+| req-fedramp-20x-ksi-collector-safety-7 | Dropped Checks Documented | Proposed | CI-specific checks (integrity rewind, origin URL, commit metadata) are documented as not-applicable to v0 HTTPS fetch and named as recovered-by the future git collector base. | |
 
 ---
 
@@ -252,21 +267,18 @@ Each non-empty run produces exactly one GRIFT batch, submitted via `tap_cares.gr
     "catalog_size_before": <int>,
     "catalog_size_after": <int>,
     "deletion_ratio": <float>
-  },
-  "safety": {
-    "review_required": <bool>,
-    "flags": [
-      {"severity": "warn", "code": "DENYLIST_PHRASE", "detail": "..."}
-    ]
   }
 }
 ```
 
-Dropped fields vs `wave-v0`:
+The batch's `description_json.data` carries only **what was successfully collected and submitted**: source provenance and change counts. There is no `safety` field — every safety check is block-class (`req-fedramp-20x-ksi-collector-safety-1`), so a successful submission means *no* safety flags fired. Failed runs produce no batch at all; the structured failure detail lives in `CollectionJob.results["error"]` instead.
 
-- `commits[]` — no commit log in a live fetch.
+Dropped fields vs the old `wave-v0`:
+
+- `commits[]` — no commit log in HTTPS fetch. Returns when the future git collector base lands (see [Future Work](#future-work)).
 - `wave.index` / `wave.filename` / `wave.is_initial` — collection runs aren't a numbered wave sequence.
-- `wave.authored_at` / `wave.authored_by` — `CollectionJob.started_at` and the run's caller carry this.
+- `wave.authored_at` / `wave.authored_by` — `CollectionJob.started_at` and the run's caller-context already carry this.
+- `safety.review_required` / `safety.flags` — superseded by the per-flag block model plus `CollectionJob.results["error"]`.
 
 The batch entity_id is a fresh UUIDv7 per run. Individual theme/indicator entity_ids are the same deterministic UUIDv5 values as today (`req-fedramp-20x-ksi-collector-pin-3`), so GRIFT upsert lands changes on the existing entities rather than creating duplicates.
 
@@ -278,9 +290,10 @@ The batch entity_id is a fresh UUIDv7 per run. Individual theme/indicator entity
 | req-fedramp-20x-ksi-collector-grift-2 | collection-v0 Format | Proposed | The batch's `description_json.format` is `tap.fedramp_20x_ksi.collection-v0`. | |
 | req-fedramp-20x-ksi-collector-grift-3 | Source Provenance | Proposed | `description_json.data.source` records URL, fetched_at, content_sha256, byte_size, and the upstream `rules_version` field. | |
 | req-fedramp-20x-ksi-collector-grift-4 | Change Counts | Proposed | `description_json.data.changes` reports new/modified/deprecated counts for themes and indicators, plus catalog size before/after and deletion ratio. | |
-| req-fedramp-20x-ksi-collector-grift-5 | Safety Recap | Proposed | `description_json.data.safety` records any warn-class flags raised during the run. | Block-class flags abort before this point and produce no batch. |
+| req-fedramp-20x-ksi-collector-grift-5 | No Safety Field | Proposed | `description_json.data` has no `safety` field. With every safety check block-class, a successful submission means no flags fired; failed runs produce no batch. Structured failure detail lives in `CollectionJob.results["error"]`. | |
 | req-fedramp-20x-ksi-collector-grift-6 | Deterministic Entity IDs | Proposed | Theme and indicator entity_ids are stable UUIDv5 derivations; re-runs upsert in place. | |
 | req-fedramp-20x-ksi-collector-grift-7 | Pinned Schema For description_json | Proposed | A JSON Schema for `collection-v0.data` ships at `plugins/fedramp_20x_ksi/collectors/pinned/collection-v0.schema.json` and the collector validates its own output against it before submission. | |
+| req-fedramp-20x-ksi-collector-grift-8 | Change-Only Submission | Proposed | The batch contains only entities classified as `new`, `modified`, or `removed` (deprecation-via-modification) — never `unchanged`. v0 does not bump observation timestamps on unchanged entities; "still observed" semantics are a future investigation (see [Future Work](#future-work)). | |
 
 ---
 
@@ -309,30 +322,68 @@ The ratio is computed against the live grid count: `deprecated_count / live_indi
 RID: `req-fedramp-20x-ksi-collector-job-result`
 Status: `Proposed`
 
-Reuses the existing `tap_cares` `CollectionJob` lifecycle without extending it. The KSI collector does not need a new status state, new edge type, or new metadata field beyond what `req-tap-cares-collector-job-model` and `req-tap-cares-collector-grift-import` already provide.
+The KSI collector uses the existing `CollectionJob` lifecycle states (`READY`/`RUNNING`/`FAILED`/`SUCCESSFUL`) and the structured `results` field defined in `req-tap-cares-collector-job-model` (the `info` / `warn` / `error` buckets with four-field entries). No KSI-specific state, edge type, or metadata field. All structured failure surfacing flows through `record_error` from `tap_cares.results`; all run-level successes flow through `record_info`.
 
 #### Successful run (no changes)
 
-- `status = SUCCESSFUL`, `error_summary = ""`, `grift_batches = {"imported": [], "skipped": []}`.
+- `status = SUCCESSFUL`
+- `error_summary = ""`
+- `grift_batches = {"imported": [], "skipped": []}`
+- `results["info"]` contains entries for: `RUN_STARTED`, `UPSTREAM_FETCHED`, `DIFF_EMPTY`, `RUN_COMPLETED`.
+- `results["error"]` empty.
 
 #### Successful run (changes submitted)
 
-- `status = SUCCESSFUL`, `error_summary = ""`, `grift_batches.imported` contains the single batch entity_id this run produced.
+- `status = SUCCESSFUL`
+- `error_summary = ""`
+- `grift_batches.imported` contains the single batch entity_id this run produced.
+- `results["info"]` contains entries for: `RUN_STARTED`, `UPSTREAM_FETCHED`, `DIFF_COMPUTED` (with counts in context), `GRIFT_SUBMITTED` (with batch entity_id in context), `RUN_COMPLETED`.
+- `results["error"]` empty.
 
 #### Failed run
 
-- `status = FAILED`, `error_summary` carries a short, safe summary of the highest-severity block flag (or the underlying exception class + message for non-safety failures).
-- `grift_batches = {"imported": [], "skipped": []}` (nothing was submitted).
-- Richer per-flag detail is currently out of scope; it lands when `req-tap-cares-collector-job-logs` is implemented.
+- `status = FAILED`
+- `error_summary` carries the one-line description of the highest-severity block flag (collector-set; renders in admin lists, job headers).
+- `grift_batches = {"imported": [], "skipped": []}` — nothing reached the grid.
+- `results["error"]` contains one entry per flag raised, each with its own `site` UUIDv7, `code`, `message`, and `context` (the dict of relevant counts, fragments, or paths into the source document — collector's call what's useful for the investigator).
+- `results["info"]` may contain partial-run breadcrumbs (`RUN_STARTED`, `UPSTREAM_FETCHED`) for runs that got past initial steps before failing.
+
+#### Result event vocabulary (v0)
+
+| Level | Code | When |
+| --- | --- | --- |
+| `info` | `RUN_STARTED` | First action of `run()`. Context: collector entity_id, job entity_id. |
+| `info` | `UPSTREAM_FETCHED` | After successful HTTPS GET + content-type / size checks. Context: URL, byte_size, content_sha256, rules_version. |
+| `info` | `DIFF_COMPUTED` | After diff produces a non-empty changeset. Context: counts (new / modified / deprecated for themes and indicators). |
+| `info` | `DIFF_EMPTY` | Diff produces no changes; no GRIFT submission to follow. |
+| `info` | `GRIFT_SUBMITTED` | After `submit_collector_grift` returns successfully. Context: batch entity_id, imported count. |
+| `info` | `RUN_COMPLETED` | Last action of `run()`. Context: terminal status. |
+| `error` | `SCHEMA_DRIFT` | Pinned-schema validation failed. Context: validator error path + message. |
+| `error` | `UNKNOWN_FIELD` | Upstream contains a key not in pinned schema. Context: path. |
+| `error` | `STRUCTURAL_CAP` | Size cap breached. Context: which cap, observed value, limit. |
+| `error` | `CHARACTER_CLASS` | Disallowed character. Context: path, character codepoint. |
+| `error` | `DENYLIST_PHRASE` | Denylist match. Context: path, phrase fragment. |
+| `error` | `OUTLIER_STRING_LENGTH` | Anomalous length. Context: path, observed length, historical norm. |
+| `error` | `MASS_DELETION` | Deprecation ratio > threshold. Context: ratio, deprecated count, live count. |
+| `error` | `UPSTREAM_OVERSIZED` | Fetch body > 10 MiB. Context: byte_size. |
+| `error` | `UPSTREAM_BAD_CONTENT_TYPE` | Wrong content-type. Context: observed content_type. |
+| `error` | `UPSTREAM_FETCH_FAILED` | Network / HTTP error. Context: exception class, message. |
+
+This vocabulary is the v0 KSI collector contract; new collectors emit their own codes under the same shape.
+
+The `warn` bucket is unused by the v0 KSI collector — every safety flag is block-class. The bucket exists at the `tap_cares` level so future collectors with genuinely non-fatal events can populate it without schema churn.
 
 #### Acceptance Criteria
 
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
 | req-fedramp-20x-ksi-collector-job-result-1 | No New Status States | Proposed | The KSI collector uses only the existing `READY`/`RUNNING`/`FAILED`/`SUCCESSFUL` states. | |
-| req-fedramp-20x-ksi-collector-job-result-2 | Successful Empty | Proposed | A run that detects no changes still succeeds; `grift_batches.imported` is empty. | |
-| req-fedramp-20x-ksi-collector-job-result-3 | Block → FAILED | Proposed | Any retained block flag yields `FAILED` with a corresponding `error_summary`. | |
-| req-fedramp-20x-ksi-collector-job-result-4 | Standard Observability | Proposed | The job is queryable through standard `tap_cares` surfaces; no KSI-specific reporting plumbing. | |
+| req-fedramp-20x-ksi-collector-job-result-2 | Successful Empty | Proposed | A run that detects no changes still succeeds; `grift_batches.imported` is empty; `results["info"]` records `DIFF_EMPTY`. | |
+| req-fedramp-20x-ksi-collector-job-result-3 | Block → FAILED | Proposed | Any block flag fails the job. `record_error` is called for every flag raised; `error_summary` is set to the highest-severity flag's message. | |
+| req-fedramp-20x-ksi-collector-job-result-4 | Vocabulary Documented | Proposed | The v0 event vocabulary above is the contract; new codes require updating the spec. | |
+| req-fedramp-20x-ksi-collector-job-result-5 | Site UUIDs Unique Per Callsite | Proposed | Each `record_*` call in the KSI collector code has a hardcoded UUIDv7 `site` value; the repo-wide uniqueness test (`req-tap-cares-collector-job-model-15`) covers KSI callsites. | |
+| req-fedramp-20x-ksi-collector-job-result-6 | Warn Bucket Unused | Proposed | The KSI collector emits no `warn`-level entries in v0; all safety flags are block-class. | |
+| req-fedramp-20x-ksi-collector-job-result-7 | Standard Observability | Proposed | The job is queryable through standard `tap_cares` surfaces; no KSI-specific reporting plumbing. | |
 
 ---
 
@@ -349,7 +400,7 @@ Two test surfaces:
    - `schema_drift.json` — variant that fails pinned-schema validation.
    - `unknown_field.json` — variant with an extra top-level key.
    - `oversized.json` — variant that breaches a structural cap.
-   - `denylist_warn.json` — variant containing a denylist phrase.
+   - `denylist_block.json` — variant containing a denylist phrase (block-class in v0).
 
 2. **Live-fetch integration test** (slow, requires network). Gated by a pytest marker (`@pytest.mark.live_fetch`) so it can be opted out of in CI by default. Verifies the real HTTPS fetch round-trips and parses, but does not assert on the resulting diff (since upstream content changes).
 
@@ -357,7 +408,7 @@ Two test surfaces:
 
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
-| req-fedramp-20x-ksi-collector-test-strategy-1 | Fixture-Injected Unit Tests | Proposed | Unit tests cover happy path, all block flags, and warn flags by overriding `fetch_upstream()` with fixtures. | |
+| req-fedramp-20x-ksi-collector-test-strategy-1 | Fixture-Injected Unit Tests | Proposed | Unit tests cover happy path and every block flag by overriding `fetch_upstream()` with fixtures. | |
 | req-fedramp-20x-ksi-collector-test-strategy-2 | Pinned Fixture Committed | Proposed | `current.json` ships in the repo so tests are deterministic. | |
 | req-fedramp-20x-ksi-collector-test-strategy-3 | Live Fetch Test Gated | Proposed | A `@pytest.mark.live_fetch` integration test verifies real network fetch and parsing; skipped by default. | |
 | req-fedramp-20x-ksi-collector-test-strategy-4 | End-to-End Via tap_cares | Proposed | A unit test invokes `enqueue_collection(collector)` and asserts that the `CollectionJob` transitions through the expected states and produces the expected `grift_batches`. | |
@@ -394,13 +445,26 @@ The following requirements in `spec-fedramp-20x-ksi-v0.md` change status as part
 | `req-fedramp-20x-ksi-refresh` | `Deprecated` | Authorship-tooling architecture; superseded by this spec. Notes the supersession explicitly. |
 | `req-fedramp-20x-ksi-wave-schema` | `Deprecated` | `wave-v0` format is replaced by `collection-v0` (see `req-fedramp-20x-ksi-collector-grift`). Existing waves in the repo will be scrubbed (`req-fedramp-20x-ksi-collector-deprecation-3`) so no historical `wave-v0` payload survives in shipped data. |
 | `req-fedramp-20x-ksi-safety` | `Deprecated` | Replaced by `req-fedramp-20x-ksi-collector-safety`. The retained checks survive; CI-specific ones drop. |
-| `req-fedramp-20x-ksi-reference` | `Revised` | Catalog still ships some seed data via GRIFT (the on-grid `Collector` node itself + dimension), but the "catalog content distributes as a sequence of dated waves" contract is dropped. New body language captures the post-collector shape. |
+| `req-fedramp-20x-ksi-reference` | `Revised` | Catalog seed ships as a single GRIFT file (see below); the "catalog content distributes as a sequence of dated waves" contract is dropped. The wave cadence dies; the seed survives, singular. |
 
 Models (`ksi_theme`, `ksi_indicator`), edges (`CONTAINS_INDICATOR`), icons, dimensions, status, classes, controls, NIST crosswalk plans — all unaffected.
 
+#### Seed file
+
+The plugin continues to ship a current-time catalog snapshot for fresh-install cold-start. The shape changes from a dated-wave cadence to **a single seed file**:
+
+- Filename: `plugins/fedramp_20x_ksi/grift/ksi-seed.grift.json` (singular, undated).
+- Contents: the current catalog as a GRIFT batch with deterministic theme/indicator entity_ids (same UUIDv5 derivation as the collector uses; `req-fedramp-20x-ksi-collector-pin-3`).
+- Bundled with the plugin, committed to the plugin repo.
+- Imported on fresh installs via `import_plugin_grift fedramp_20x_ksi`; subsequent imports skip per GRIFT's already-imported guard.
+
+This preserves the offline / no-GitHub install path. Once the plugin is up, the collector takes over for updates. The seed gets refreshed in place (filename stays the same) when a maintainer decides to bump it — initially manually, eventually via a future emitter that rebakes from current grid state.
+
+The previously-shipped `ksi-initial-YYYY-MM-DD.grift.json` and any `ksi-wave-YYYY-MM-DD.grift.json` files are deleted in this phase. The on-grid `Collector` seed (a separate small GRIFT file) and `dimension.grift.json` survive untouched.
+
 #### Database state on existing dev installs
 
-Per direction from spec review: the existing data in any developer's local TAP grid can be wiped and re-collected from a fresh KSI collector run. No migration of historical wave provenance. The collector's first run on an empty grid will land the complete current catalog as `new`.
+Per direction from spec review: the existing data in any developer's local TAP grid can be wiped and re-collected from a fresh KSI collector run, or re-seeded via `import_plugin_grift` followed by a collector run. No migration of historical wave provenance.
 
 #### Acceptance Criteria
 
@@ -408,8 +472,9 @@ Per direction from spec review: the existing data in any developer's local TAP g
 | --- | --- | :---: | --- | --- |
 | req-fedramp-20x-ksi-collector-deprecation-1 | Code Removed | Proposed | `skills/refresh-ksi-catalog/`, the submodule, the nightly GitHub Action, and any manifest references are deleted in this phase. | |
 | req-fedramp-20x-ksi-collector-deprecation-2 | Content Migrated | Proposed | Pinned schema, UUID namespace, and denylist move byte-exact into `plugins/fedramp_20x_ksi/collectors/`. | |
-| req-fedramp-20x-ksi-collector-deprecation-3 | Old Waves Scrubbed | Proposed | The existing `ksi-initial-*.grift.json` and any subsequent `ksi-wave-*.grift.json` files are deleted; the manifest's `[grift]` section drops references to them. The on-grid `Collector` seed and `dimension.grift.json` survive. | |
+| req-fedramp-20x-ksi-collector-deprecation-3 | Waves Replaced By Seed | Proposed | Existing `ksi-initial-*.grift.json` and `ksi-wave-*.grift.json` files are deleted. A single `ksi-seed.grift.json` (current-time snapshot) replaces them. The on-grid `Collector` seed and `dimension.grift.json` survive. | |
 | req-fedramp-20x-ksi-collector-deprecation-4 | v0 Spec Status Sync | Proposed | `req-fedramp-20x-ksi-refresh`, `-wave-schema`, `-safety`, and `-reference` are updated in `spec-fedramp-20x-ksi-v0.md` per the table above, with cross-references to this spec. | |
+| req-fedramp-20x-ksi-collector-deprecation-5 | Seed Singular And Undated | Proposed | The shipped seed file uses the fixed filename `ksi-seed.grift.json`; refreshes overwrite in place. Dated filenames are no longer used. | |
 
 ---
 
@@ -420,17 +485,32 @@ Status: `Proposed`
 
 Items intentionally deferred:
 
-1. **Scheduled refresh.** Once `tap_cares` ships a scheduler (`req-tap-cares-v0-scheduler`), the KSI collector becomes the first concrete consumer. v0 KSI collector runs are triggered manually (Django shell, management command, or admin button).
-2. **Emitter loop back to FedRAMP/rules.** When `tap_cares` emitters land, a complementary `KSIEmitter` could push local-instance edits back to the FedRAMP/rules repo as PRs, making a TAP installation the canonical authoring path. The collector's `description_json.data.source` already records the inverse direction; symmetry with an emitter is intentional.
-3. **Delete semantics in GRIFT.** Current `tap_grid` GRIFT importer has no explicit delete operation; deprecation-via-modification fills the gap. A proper delete (with entity_id list + reasons) would simplify `req-fedramp-20x-ksi-collector-diff-4` and let the catalog actually shrink rather than accumulate `deprecated` entries forever. Tracked in `tap_grid` spec backlog; the KSI collector adopts it if/when it ships.
-4. **Per-flag detail in CollectionJob.** Block flags currently get a single-line `error_summary`. When `req-tap-cares-collector-job-logs` (currently `Backlog`) lands, each flag should attach a structured entry with code, severity, path, and message.
-5. **Live-fetch CI gate.** A nightly CI job that runs the `@pytest.mark.live_fetch` test against real upstream would catch upstream-shape changes early. Not a v0 must.
+1. **Git collector base class.** The biggest deferred item, and the one we expect to land soonest. A `tap_cares.collectors.GitCollectorBase` would subclass `CollectorBase` and bake in the provenance posture that HTTPS-only fetch cannot provide. Concrete scope when it ships:
+
+   - Pinned origin (URL + branch) check, replacing today's pinned-URL check.
+   - Persistent shallow-clone cache lifecycle (`git clone --depth=1` first run; `git fetch` thereafter) in a tap_cares-owned cache dir (probably configurable via a `TAP_CARES_CACHE_DIR` setting).
+   - `git merge-base --is-ancestor` rewind protection. Last-integrated SHA is read from the most recent successful `CollectionJob.description_json.data.source.commit_to` — the grid is the state store; no on-disk manifest needed.
+   - Commit metadata extraction (`sha`, `date`, `author_name`, `author_email`, `signed`, `verified`, `message_first_line`).
+   - A subclass hook so the KSI collector says *"my source document is `fedramp-consolidated-rules.json` in this checkout"* without the parent class needing to know about FedRAMP.
+
+   Migration impact when this lands: the KSI collector resubclasses `GitCollectorBase` instead of `CollectorBase`; the dropped safety checks (`INTEGRITY_REWIND`, `ORIGIN_MISMATCH`, `COMMIT_AUTHOR_DRIFT`, signing checks) come back as block-class; `description_json.data.commits[]` returns; the HTTPS trust-model caveat in `req-fedramp-20x-ksi-collector-safety` becomes obsolete.
+
+2. **Scheduled refresh.** Once `tap_cares` ships a scheduler (`req-tap-cares-v0-scheduler`), the KSI collector becomes the first concrete consumer. v0 KSI collector runs are triggered manually (Django shell, management command, or admin button).
+
+3. **Emitter loop back to FedRAMP/rules.** When `tap_cares` emitters land, a complementary `KSIEmitter` could push local-instance edits back to the FedRAMP/rules repo as PRs, making a TAP installation the canonical authoring path. The collector's `description_json.data.source` already records the inverse direction; symmetry with an emitter is intentional.
+
+4. **"Touch entity" primitive in tap_grid.** v0 KSI does change-only upsert — unchanged entities are left strictly alone. A future `touch_entity(entity_id)` service-layer primitive on tap_grid would let the collector bump `Entity.updated_at` on unchanged entities *without* generating a history row, enabling an "as of last run, still observed" semantic without the history-table noise that "upsert everything every run" would cause. Investigation belongs in `tap_grid` spec backlog, not here — the right home is the GRIFT / Entity spec, not a plugin spec.
+
+5. **Delete semantics in GRIFT.** Current `tap_grid` GRIFT importer has no explicit delete operation; deprecation-via-modification fills the gap. A proper delete (with entity_id list + reasons) would let the catalog actually shrink rather than accumulate `deprecated` entries forever. Tracked in `tap_grid` spec backlog; the KSI collector adopts it if/when it ships.
+
+6. **Live-fetch CI gate.** A nightly CI job that runs the `@pytest.mark.live_fetch` test against real upstream would catch upstream-shape changes early. Not a v0 must.
 
 #### Acceptance Criteria
 
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
-| req-fedramp-20x-ksi-collector-future-1 | Named Successors | Proposed | The above five future items are named and cross-referenced to their owning specs / backlog items. | |
+| req-fedramp-20x-ksi-collector-future-1 | Named Successors | Proposed | The above six future items are named and cross-referenced to their owning specs / backlog items. | |
+| req-fedramp-20x-ksi-collector-future-2 | Git Collector Base Scope Concrete | Proposed | The git-collector-base item names specific responsibilities (origin pin, clone cache, ancestor verification, commit metadata) so the future implementer has a clear scope. | |
 
 ---
 
