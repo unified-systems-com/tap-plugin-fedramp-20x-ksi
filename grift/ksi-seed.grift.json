@@ -8,77 +8,25 @@
       "batch_entity": {
         "entity_id": "1a34b4ae-0d58-50a0-8ef4-94aab941fab3",
         "entity_type": "batch",
-        "name": "FedRAMP 20x KSI wave 1 (d2cc928)",
+        "name": "FedRAMP 20x KSI initial catalog seed",
         "dimensions": {}
       },
       "batch_node": {
-        "source": "plugins.fedramp_20x_ksi.skills.refresh-ksi-catalog",
-        "name": "FedRAMP 20x KSI wave 1 (d2cc928)",
-        "description": "Wave integrating upstream commit d2cc9288c3e1f6909d336e7af0eae2846ab5e375.",
+        "source": "plugins.fedramp_20x_ksi",
+        "name": "FedRAMP 20x KSI initial catalog seed",
+        "description": "One-time initial snapshot of the FedRAMP 20x KSI catalog. Ongoing updates land via the runtime KSICollector \u2014 see plugins/fedramp_20x_ksi/specs/spec-fedramp-20x-ksi-collector.md.",
         "description_json": {
-          "format": "tap.fedramp_20x_ksi.wave-v0",
+          "format": "tap.fedramp_20x_ksi.seed-v0",
           "data": {
             "schema_version": "v0",
             "source": {
-              "repo": "https://github.com/FedRAMP/rules.git",
-              "file": "fedramp-consolidated-rules.json",
-              "file_sha256": "8725c7d5b3af6d83034487c81d482cd9ea00741bc5b0bf78a093f21c54508f77",
+              "url": "https://github.com/FedRAMP/rules.git",
               "rules_version": "2026.0.1.1-wip-preview",
-              "rules_last_updated": "2026-06-01",
-              "commit_from": null,
-              "commit_to": "d2cc9288c3e1f6909d336e7af0eae2846ab5e375",
-              "commit_from_date": null,
-              "commit_to_date": "2026-04-19T17:55:16-04:00"
+              "rules_commit": "d2cc9288c3e1f6909d336e7af0eae2846ab5e375",
+              "content_sha256": "8725c7d5b3af6d83034487c81d482cd9ea00741bc5b0bf78a093f21c54508f77"
             },
-            "commits": [
-              {
-                "sha": "d2cc9288c3e1f6909d336e7af0eae2846ab5e375",
-                "date": "2026-04-19T17:55:16-04:00",
-                "author_name": "pete-gov",
-                "author_email": "pete.waterman@gsa.gov",
-                "signed": false,
-                "verified": false,
-                "message_first_line": "hellow world"
-              }
-            ],
-            "wave": {
-              "index": 1,
-              "filename": "ksi-initial-2026-04-23.grift.json",
-              "authored_at": "2026-04-23T00:45:39.643367Z",
-              "authored_by": "refresh-ksi-catalog@v0",
-              "is_initial": true
-            },
-            "changes": {
-              "themes_added": 10,
-              "themes_modified": 0,
-              "themes_removed": 0,
-              "indicators_added": 46,
-              "indicators_modified": 0,
-              "indicators_deprecated": 0,
-              "catalog_size_before": 0,
-              "catalog_size_after": 46,
-              "deletion_ratio": 0.0
-            },
-            "safety": {
-              "review_required": true,
-              "flags": [
-                {
-                  "severity": "info",
-                  "code": "COMMIT_UNSIGNED",
-                  "detail": "d2cc928 unsigned"
-                },
-                {
-                  "severity": "warn",
-                  "code": "COMMIT_MESSAGE_QUALITY",
-                  "detail": "d2cc928 message low-quality: 'hellow world'"
-                },
-                {
-                  "severity": "info",
-                  "code": "INITIAL_WAVE",
-                  "detail": "No prior baseline; full catalog emitted as new"
-                }
-              ]
-            }
+            "seeded_at": "2026-04-23T00:45:39.643367Z",
+            "note": "One-time initial catalog snapshot. Ongoing updates come from the runtime KSICollector (plugins.fedramp_20x_ksi.collectors.ksi_catalog)."
           }
         }
       },

@@ -45,7 +45,7 @@ This spec inherits the catalog vocabulary (Theme, Indicator, Certification Class
 | req-fedramp-20x-ksi-collector-mass-deletion | [Mass-Deletion Guard](#mass-deletion-guard) | Proposed | >10% deprecation ratio aborts the run as a block flag |
 | req-fedramp-20x-ksi-collector-job-result | [CollectionJob Result Shape](#collectionjob-result-shape) | Proposed | What gets recorded on success and failure |
 | req-fedramp-20x-ksi-collector-test-strategy | [Test Strategy](#test-strategy) | Proposed | Fixture-based unit tests + optional live-fetch integration test |
-| req-fedramp-20x-ksi-collector-deprecation | [Deprecation of Authorship Tooling](#deprecation-of-authorship-tooling) | Proposed | Removes refresh.py, GitHub Action, submodule, skill directory |
+| req-fedramp-20x-ksi-collector-deprecation | [Deprecation of Authorship Tooling](#deprecation-of-authorship-tooling) | Implemented | Removed refresh.py, GitHub Action, submodule, and skill directory; seed file replaces dated waves |
 | req-fedramp-20x-ksi-collector-future | [Future Work](#future-work) | Proposed | Emitter loop, delete semantics, scheduler integration |
 
 ---
@@ -418,7 +418,7 @@ Two test surfaces:
 ### Deprecation of Authorship Tooling
 ----
 RID: `req-fedramp-20x-ksi-collector-deprecation`
-Status: `Proposed`
+Status: `Implemented`
 
 The catalog refresh authorship tooling is fully removed in this phase. Concretely:
 
@@ -470,11 +470,11 @@ Per direction from spec review: the existing data in any developer's local TAP g
 
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
-| req-fedramp-20x-ksi-collector-deprecation-1 | Code Removed | Proposed | `skills/refresh-ksi-catalog/`, the submodule, the nightly GitHub Action, and any manifest references are deleted in this phase. | |
-| req-fedramp-20x-ksi-collector-deprecation-2 | Content Migrated | Proposed | Pinned schema, UUID namespace, and denylist move byte-exact into `plugins/fedramp_20x_ksi/collectors/`. | |
-| req-fedramp-20x-ksi-collector-deprecation-3 | Waves Replaced By Seed | Proposed | Existing `ksi-initial-*.grift.json` and `ksi-wave-*.grift.json` files are deleted. A single `ksi-seed.grift.json` (current-time snapshot) replaces them. The on-grid `Collector` seed and `dimension.grift.json` survive. | |
-| req-fedramp-20x-ksi-collector-deprecation-4 | v0 Spec Status Sync | Proposed | `req-fedramp-20x-ksi-refresh`, `-wave-schema`, `-safety`, and `-reference` are updated in `spec-fedramp-20x-ksi-v0.md` per the table above, with cross-references to this spec. | |
-| req-fedramp-20x-ksi-collector-deprecation-5 | Seed Singular And Undated | Proposed | The shipped seed file uses the fixed filename `ksi-seed.grift.json`; refreshes overwrite in place. Dated filenames are no longer used. | |
+| req-fedramp-20x-ksi-collector-deprecation-1 | Code Removed | Implemented | `skills/refresh-ksi-catalog/`, the upstream submodule, the nightly GitHub Action, and the plugin's `.gitmodules` have been deleted. | |
+| req-fedramp-20x-ksi-collector-deprecation-2 | Content Migrated | Implemented | Pinned source schema, UUID namespace, and denylist live byte-exact in `plugins/fedramp_20x_ksi/collectors/{pinned,safety}/`. | |
+| req-fedramp-20x-ksi-collector-deprecation-3 | Waves Replaced By Seed | Implemented | `ksi-initial-2026-04-23.grift.json` was removed; replaced by `ksi-seed.grift.json` with the same catalog content under a `tap.fedramp_20x_ksi.seed-v0` description format. `dimension.grift.json` and the on-grid `Collector` seed survive. | |
+| req-fedramp-20x-ksi-collector-deprecation-4 | v0 Spec Status Sync | Implemented | `req-fedramp-20x-ksi-refresh`, `-wave-schema`, and `-safety` are flipped to Deprecated in `spec-fedramp-20x-ksi-v0.md`; `-reference` reflects the single-seed model. | |
+| req-fedramp-20x-ksi-collector-deprecation-5 | Seed Singular And Undated | Implemented | The shipped seed file uses the fixed filename `ksi-seed.grift.json`; refreshes overwrite in place. | |
 
 ---
 

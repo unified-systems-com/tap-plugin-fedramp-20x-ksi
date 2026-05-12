@@ -1,3 +1,0 @@
-[submodule "skills/refresh-ksi-catalog/upstream"]
-	path = skills/refresh-ksi-catalog/upstream
-	url = https://github.com/FedRAMP/rules.git

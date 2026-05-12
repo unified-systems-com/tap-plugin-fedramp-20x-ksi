@@ -6,7 +6,7 @@ The FedRAMP 20x KSI plugin models the Key Security Indicator (KSI) catalog defin
 
 The plugin stays narrow on purpose. It is responsible for catalog representation and lifecycle, not for evidence collection, crosswalks to other frameworks, or compliance scoring. Those are deliberately deferred so the v0 catalog can stabilize before downstream consumers depend on richer semantics.
 
-The FedRAMP 20x program is itself evolving on a rolling-release cadence. The plugin treats the machine-readable consolidated rules published by FedRAMP at [github.com/FedRAMP/rules](https://github.com/FedRAMP/rules) as the canonical source of truth. Catalog content enters the plugin as versioned GRIFT waves shipped alongside the code, authored by a refresh workflow that runs against that source. Each wave is a point-in-time batch capturing catalog additions, modifications, and deprecations; applied in order they reconstruct the current catalog.
+The FedRAMP 20x program is itself evolving on a rolling-release cadence. The plugin treats the machine-readable consolidated rules published by FedRAMP at [github.com/FedRAMP/rules](https://github.com/FedRAMP/rules) as the canonical source of truth. Catalog content enters the grid via two paths: (1) a one-time `grift/ksi-seed.grift.json` snapshot shipped with the plugin to bootstrap fresh installs, and (2) the runtime `KSICollector` registered with `tap_cares`, which fetches the upstream and submits a change-only GRIFT batch when re-run. See `spec-fedramp-20x-ksi-collector.md` for the collector.
 
 The plugin's TAP-managed types use the `compliance: fedramp-20x` default dimension. Framework identity is carried by the dimension rather than by a singleton root model, leaving room for other compliance frameworks (NIST 800-53, ISO 27001, etc.) to coexist later in parallel plugins under the same `compliance` dimension key.
 
@@ -31,7 +31,7 @@ Phases (Phase One, Phase Two) are a program-level concept. The plugin tracks whi
 |    |              |                                                                 |
 | :---: | ---       | ---                                                             |
 | 1. | Narrow         | v0 models only KSI themes and indicators; no evidence, scoring, or framework crosswalk edges |
-| 2. | Wave-Distributed | Catalog content ships as versioned GRIFT waves authored by the refresh workflow |
+| 2. | Runtime-Collected | Catalog updates land via the `tap_cares` `KSICollector`; the plugin ships a single bootstrap seed |
 | 3. | Dimensioned    | Every TAP-managed type uses the `compliance: fedramp-20x` default dimension |
 | 4. | Lifecycle-Aware | Indicators carry an explicit status (draft/published/deprecated) so catalog churn is visible |
 | 5. | Source-Faithful | Catalog fields preserve the shape published by FedRAMP rather than reinterpreting |
@@ -51,10 +51,10 @@ Phases (Phase One, Phase Two) are a program-level concept. The plugin tracks whi
 | req-fedramp-20x-ksi-metadata | [Source Metadata Fields](#source-metadata-fields) | Implemented | Indicators carry `updated_log`, `terms`, `reference`, `reference_url` from source |
 | req-fedramp-20x-ksi-edges | [Edge Types](#edge-types) | Implemented | Single `CONTAINS_INDICATOR` edge from theme to indicator |
 | req-fedramp-20x-ksi-icons | [Icons](#icons) | Implemented | Generic type-level icons bound to models; 10 per-theme SVGs shipped as static assets |
-| req-fedramp-20x-ksi-reference | [Reference Data As GRIFT Waves](#reference-data-as-grift-waves) | Proposed | Catalog ships as versioned GRIFT waves; v0 scaffold ships none yet |
-| req-fedramp-20x-ksi-refresh | [Catalog Refresh Workflow](#catalog-refresh-workflow) | In Development | Submodule-based upstream tracking; deterministic Python diff tool; nightly CI |
-| req-fedramp-20x-ksi-wave-schema | [Wave Description Schema](#wave-description-schema) | Implemented | Structured `description_json` shape emitted per wave batch |
-| req-fedramp-20x-ksi-safety | [Refresh Safety Model](#refresh-safety-model) | Implemented | Block/warn/info flag set enforced by the refresh tool and required-check in CI |
+| req-fedramp-20x-ksi-reference | [Reference Data Distribution](#reference-data-distribution) | Implemented | Plugin ships a single `grift/ksi-seed.grift.json` snapshot; ongoing updates land via the runtime collector |
+| req-fedramp-20x-ksi-refresh | [Catalog Refresh Workflow](#catalog-refresh-workflow) | Deprecated | Superseded by runtime `KSICollector` — see `spec-fedramp-20x-ksi-collector.md` |
+| req-fedramp-20x-ksi-wave-schema | [Wave Description Schema](#wave-description-schema) | Deprecated | Wave format removed with refresh tooling; runtime batches use `tap.fedramp_20x_ksi.collection-v0` |
+| req-fedramp-20x-ksi-safety | [Refresh Safety Model](#refresh-safety-model) | Deprecated | Safety checks reimplemented inside the runtime collector — see `spec-fedramp-20x-ksi-collector.md` |
 | req-fedramp-20x-ksi-plugin-validation | [Plugin Validation](#plugin-validation) | Implemented | Structure-level validation passes; loads/runs awaiting INSTALLED_APPS integration |
 | req-fedramp-20x-ksi-nongoals | [v0 Non-Goals](#v0-non-goals) | Proposed | Explicitly deferred concerns |
 
@@ -417,48 +417,41 @@ Known v0 visual limitation: graph views using the default `ENTITY_ICON` resoluti
 
 When `req-grid-icon-instance` is implemented, rebind per-theme icons as instance-level overrides so Cytoscape and other default-icon consumers render each theme with its own icon without dashboards resolving by code.
 
-### Reference Data As GRIFT Waves
+### Reference Data Distribution
 ----
 RID: `req-fedramp-20x-ksi-reference`
-Status: `Proposed`
+Status: `Implemented`
 
-Catalog content ships as versioned GRIFT waves in the plugin's `grift/` directory. Each wave is a point-in-time batch capturing additions, modifications, and deprecations relative to the catalog state implied by all earlier waves.
+The plugin ships **one** catalog seed file, `grift/ksi-seed.grift.json`, containing a point-in-time snapshot of themes and indicators with deterministic UUIDv5 entity IDs derived from `code`. The seed bootstraps fresh installs; ongoing updates (additions, modifications, deprecations) flow through the runtime `KSICollector` defined in `spec-fedramp-20x-ksi-collector.md`, which submits a `tap.fedramp_20x_ksi.collection-v0` GRIFT batch per run.
 
-#### Status Details
-
-Contract declared and documented. No KSI catalog waves shipped yet in v0 scaffold; the first wave is the refresh skill's first job.
+The previous multi-wave distribution scheme (`ksi-initial-YYYY-MM-DD.grift.json` + `ksi-wave-YYYY-MM-DD.grift.json`) has been retired along with the authorship-tooling refresh workflow; the seed file replaces both.
 
 #### Implementation
 
-Wave file naming convention:
-
-- `grift/ksi-initial-YYYY-MM-DD.grift.json` — the first wave; a full catalog snapshot
-- `grift/ksi-wave-YYYY-MM-DD.grift.json` — subsequent waves; additions, modifications, and deprecations
-
-Lexical filename order matches chronological order for this scheme, and waves apply in that order. Applied cumulatively, the waves reconstruct the current catalog.
-
-Idempotency: each wave uses deterministic entity IDs derived from the theme or indicator `code`. The refresh workflow is responsible for producing stable IDs across runs so re-importing a wave produces the same entity graph.
-
-Deprecation semantics: when source data drops an indicator between refresh runs, the next wave emits a modification that sets `status: deprecated` on that indicator rather than deleting it. Later waves can supersede earlier status decisions if source data resurrects an indicator.
-
-v0 scaffold: the plugin ships no KSI catalog wave files yet. The manifest's `[grift]` section currently declares only the static `dimension.grift.json` seed (see `req-fedramp-20x-ksi-dimensions`); the first KSI wave is produced by the refresh workflow. Adding waves is additive and does not require breaking changes to plugin structure.
+- Seed filename: `grift/ksi-seed.grift.json`
+- Seed `description_json.format = "tap.fedramp_20x_ksi.seed-v0"` with minimal source metadata (upstream repo URL, rules version, commit SHA, content SHA-256, `seeded_at`).
+- Entity IDs derive from `uuid5(namespace, f"<entity_type>:{code}")` with the namespace pinned in `collectors/pinned/uuid_namespace.txt`. The same derivation is used by the runtime collector, guaranteeing the seed and collector-emitted batches converge on the same entity rows.
+- GRIFT import is idempotent: re-running `import_plugin_grift` is a no-op once the seed has landed.
+- Deprecation semantics: when upstream drops an indicator, the runtime collector emits a `status: deprecated` modification rather than a delete — the seed file itself is not amended for ongoing change.
 
 #### Acceptance Criteria
 
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
-| req-fedramp-20x-ksi-reference-1 | Wave-Based Distribution | Proposed | Catalog content distributes as GRIFT waves committed to `grift/` in the plugin repo. | First wave pending refresh skill |
-| req-fedramp-20x-ksi-reference-2 | Naming Convention | Implemented | Wave filenames follow `ksi-initial-YYYY-MM-DD.grift.json` for the first wave and `ksi-wave-YYYY-MM-DD.grift.json` for subsequent waves. | Convention documented |
-| req-fedramp-20x-ksi-reference-3 | Deterministic Entity IDs | Proposed | Wave entries use deterministic entity IDs derived from the stable `code` field. | UUIDv5 scheme pending refresh skill |
-| req-fedramp-20x-ksi-reference-4 | Deprecation Via Modification | Proposed | Missing indicators enter a wave as a modification setting `status: deprecated`, never as a delete. | Contract declared; refresh skill enforces |
-| req-fedramp-20x-ksi-reference-5 | Additive Evolution | Proposed | Adding new waves does not require structural changes to the plugin; the manifest is updated to reference new wave files. | |
+| req-fedramp-20x-ksi-reference-1 | Single Seed File | Implemented | The plugin ships exactly one catalog seed at `grift/ksi-seed.grift.json`. | |
+| req-fedramp-20x-ksi-reference-2 | Seed Format Identifier | Implemented | The seed's batch `description_json.format` is `tap.fedramp_20x_ksi.seed-v0`. | |
+| req-fedramp-20x-ksi-reference-3 | Deterministic Entity IDs | Implemented | Seed entities use `uuid5(namespace, f"<entity_type>:{code}")` with the namespace pinned in `collectors/pinned/uuid_namespace.txt`. | Shared with the runtime collector |
+| req-fedramp-20x-ksi-reference-4 | Deprecation Via Runtime Collector | Implemented | Ongoing catalog changes (including deprecations) land via `KSICollector`; the seed file is not amended for change. | See `spec-fedramp-20x-ksi-collector.md` |
+| req-fedramp-20x-ksi-reference-5 | Idempotent Re-import | Implemented | Re-importing the seed file produces no new entities; GRIFT import is skip-if-exists. | |
 
 ### Catalog Refresh Workflow
 ----
 RID: `req-fedramp-20x-ksi-refresh`
-Status: `In Development`
+Status: `Deprecated`
 
-The plugin keeps its catalog current by tracking FedRAMP's machine-readable consolidated rules repo as a git submodule and generating GRIFT waves that capture upstream changes. A deterministic Python tool does the work; Claude's role (when invoked via the skill) is orchestration and summarization, never content interpretation.
+**Deprecated.** The authorship-tooling refresh workflow (`skills/refresh-ksi-catalog/`, the upstream submodule, and `.github/workflows/refresh-catalog.yml`) has been removed and replaced by the runtime `KSICollector`. See `spec-fedramp-20x-ksi-collector.md` for the canonical design — same upstream, same safety checks, same deterministic UUIDv5 derivation, but executed against a live grid via `tap_cares` rather than authored into wave files at CI time. The historical design below is retained for context only and is not implemented.
+
+The plugin previously kept its catalog current by tracking FedRAMP's machine-readable consolidated rules repo as a git submodule and generating GRIFT waves that captured upstream changes. A deterministic Python tool did the work; Claude's role (when invoked via the skill) was orchestration and summarization, never content interpretation.
 
 #### Trust boundary
 
@@ -523,24 +516,26 @@ The nightly GitHub Action in the plugin repo:
 
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
-| req-fedramp-20x-ksi-refresh-1 | Submodule-Tracked Upstream | Implemented | Upstream is a git submodule at `skills/refresh-ksi-catalog/upstream/`. | Shallow clone; fetch --unshallow in CI when needed |
-| req-fedramp-20x-ksi-refresh-2 | Pinned Origin | Implemented | The expected upstream URL and branch are pinned in `pinned/source_origin.json`; mutations require PR review. | |
-| req-fedramp-20x-ksi-refresh-3 | Pinned Schema | Implemented | The upstream JSON schema is pinned in `pinned/source_schema.json`; schema drift aborts the run. | |
-| req-fedramp-20x-ksi-refresh-4 | Deterministic Entity IDs | Implemented | Entity IDs derive from `uuid5(namespace, f"<kind>:{code}")`. Namespace pinned in `pinned/uuid_namespace.txt`. | |
-| req-fedramp-20x-ksi-refresh-5 | History Integrity | Implemented | The tool aborts when the new submodule HEAD is not a descendant of the last-integrated SHA. | `git merge-base --is-ancestor` |
-| req-fedramp-20x-ksi-refresh-6 | Deletion Threshold | Implemented | Refreshes that would deprecate > 10% of existing indicators in a single wave abort with `MASS_DELETION`. | Protects downstream implementations |
-| req-fedramp-20x-ksi-refresh-7 | Authorship Tooling | Implemented | The skill is authorship tooling for the plugin maintainer and CI; operators do not run it. | |
-| req-fedramp-20x-ksi-refresh-8 | Claude Does Not Interpret Content | Implemented | The SKILL.md instructs Claude to invoke the tool and format output, never to read raw source content as free-form input. | |
-| req-fedramp-20x-ksi-refresh-9 | CI-Friendly Structured Output | Implemented | `refresh.py` emits structured JSON on stdout and a non-zero exit code on any `block` flag. | |
-| req-fedramp-20x-ksi-refresh-10 | Nightly GitHub Action | Implemented | A workflow in the plugin repo runs the tool on a nightly schedule and opens PRs for generated waves. | |
-| req-fedramp-20x-ksi-refresh-11 | No URL Following | Implemented | The tool never fetches URLs found in source content; `reference_url` is stored as string only. | |
+| req-fedramp-20x-ksi-refresh-1 | Submodule-Tracked Upstream | Deprecated | Upstream is a git submodule at `skills/refresh-ksi-catalog/upstream/`. | Shallow clone; fetch --unshallow in CI when needed |
+| req-fedramp-20x-ksi-refresh-2 | Pinned Origin | Deprecated | The expected upstream URL and branch are pinned in `pinned/source_origin.json`; mutations require PR review. | |
+| req-fedramp-20x-ksi-refresh-3 | Pinned Schema | Deprecated | The upstream JSON schema is pinned in `pinned/source_schema.json`; schema drift aborts the run. | |
+| req-fedramp-20x-ksi-refresh-4 | Deterministic Entity IDs | Deprecated | Entity IDs derive from `uuid5(namespace, f"<kind>:{code}")`. Namespace pinned in `pinned/uuid_namespace.txt`. | |
+| req-fedramp-20x-ksi-refresh-5 | History Integrity | Deprecated | The tool aborts when the new submodule HEAD is not a descendant of the last-integrated SHA. | `git merge-base --is-ancestor` |
+| req-fedramp-20x-ksi-refresh-6 | Deletion Threshold | Deprecated | Refreshes that would deprecate > 10% of existing indicators in a single wave abort with `MASS_DELETION`. | Protects downstream implementations |
+| req-fedramp-20x-ksi-refresh-7 | Authorship Tooling | Deprecated | The skill is authorship tooling for the plugin maintainer and CI; operators do not run it. | |
+| req-fedramp-20x-ksi-refresh-8 | Claude Does Not Interpret Content | Deprecated | The SKILL.md instructs Claude to invoke the tool and format output, never to read raw source content as free-form input. | |
+| req-fedramp-20x-ksi-refresh-9 | CI-Friendly Structured Output | Deprecated | `refresh.py` emits structured JSON on stdout and a non-zero exit code on any `block` flag. | |
+| req-fedramp-20x-ksi-refresh-10 | Nightly GitHub Action | Deprecated | A workflow in the plugin repo runs the tool on a nightly schedule and opens PRs for generated waves. | |
+| req-fedramp-20x-ksi-refresh-11 | No URL Following | Deprecated | The tool never fetches URLs found in source content; `reference_url` is stored as string only. | |
 
 ### Wave Description Schema
 ----
 RID: `req-fedramp-20x-ksi-wave-schema`
-Status: `Implemented`
+Status: `Deprecated`
 
-Each wave's batch `description_json` carries structured provenance describing which upstream commits the wave covers, what changed, and what safety flags were raised.
+**Deprecated.** Wave files and their `tap.fedramp_20x_ksi.wave-v0` description format have been removed. Runtime collector batches use `tap.fedramp_20x_ksi.collection-v0` (pinned in `collectors/pinned/collection-v0.schema.json`); the bootstrap seed uses the simpler `tap.fedramp_20x_ksi.seed-v0` marker described in `req-fedramp-20x-ksi-reference`. The historical wave schema is retained below for context only.
+
+Each wave's batch `description_json` carried structured provenance describing which upstream commits the wave covered, what changed, and what safety flags were raised.
 
 #### Format
 
@@ -585,17 +580,19 @@ Wave provenance is queryable at `Batch.description_json__data__source__commit_to
 
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
-| req-fedramp-20x-ksi-wave-schema-1 | Pinned Schema File | Implemented | Wave `description_json.data` shape is pinned in `skills/refresh-ksi-catalog/pinned/wave-v0.schema.json`. | |
-| req-fedramp-20x-ksi-wave-schema-2 | Format Identifier | Implemented | Wave batches use `format = "tap.fedramp_20x_ksi.wave-v0"`. | |
-| req-fedramp-20x-ksi-wave-schema-3 | Queryable Provenance | Implemented | Wave provenance is queryable via Django JSONField lookups against `description_json.data`. | |
-| req-fedramp-20x-ksi-wave-schema-4 | Tool Self-Validates | Implemented | `refresh.py` validates every emitted wave's description payload against `wave-v0.schema.json` before writing. | |
+| req-fedramp-20x-ksi-wave-schema-1 | Pinned Schema File | Deprecated | Wave `description_json.data` shape is pinned in `skills/refresh-ksi-catalog/pinned/wave-v0.schema.json`. | |
+| req-fedramp-20x-ksi-wave-schema-2 | Format Identifier | Deprecated | Wave batches use `format = "tap.fedramp_20x_ksi.wave-v0"`. | |
+| req-fedramp-20x-ksi-wave-schema-3 | Queryable Provenance | Deprecated | Wave provenance is queryable via Django JSONField lookups against `description_json.data`. | |
+| req-fedramp-20x-ksi-wave-schema-4 | Tool Self-Validates | Deprecated | `refresh.py` validates every emitted wave's description payload against `wave-v0.schema.json` before writing. | |
 
 ### Refresh Safety Model
 ----
 RID: `req-fedramp-20x-ksi-safety`
-Status: `Implemented`
+Status: `Deprecated`
 
-The refresh tool classifies anomalies into three severities: `block`, `warn`, `info`. Block aborts the run; warn generates a wave but marks the PR for required safety review; info is telemetry.
+**Deprecated.** Safety flags are now implemented inside the runtime `KSICollector` — same flag codes, but the runtime treats every flag as block-class (`req-fedramp-20x-ksi-collector-block-flags`). The three-severity refresh-time model below is retained for context only.
+
+The refresh tool classified anomalies into three severities: `block`, `warn`, `info`. Block aborted the run; warn generated a wave but marked the PR for required safety review; info was telemetry.
 
 #### Flag catalog
 
@@ -643,12 +640,12 @@ Sourced dynamically at CI time from `gh api /orgs/FedRAMP/members` plus a static
 
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
-| req-fedramp-20x-ksi-safety-1 | Three Severity Levels | Implemented | The tool classifies anomalies as `block`, `warn`, or `info` per the flag catalog. | |
-| req-fedramp-20x-ksi-safety-2 | Block Aborts Run | Implemented | Any `block`-severity flag aborts the refresh with non-zero exit; no wave is emitted. | |
-| req-fedramp-20x-ksi-safety-3 | Warn Requires Label | Implemented | PRs carrying `warn`-level flags require a `safety-review-ok` label before merge. | CI enforces via branch protection / required status check |
-| req-fedramp-20x-ksi-safety-4 | Deletion Threshold At 10% | Implemented | Mass-deletion block threshold is 10% of existing indicators in a single wave. | `MASS_DELETION` code |
-| req-fedramp-20x-ksi-safety-5 | Dynamic Committer Allowlist | Implemented | Expected committer email domains are fetched at run time from GitHub org membership plus a static fallback. | |
-| req-fedramp-20x-ksi-safety-6 | Prompt-Injection Denylist | Implemented | Content is scanned for known prompt-injection phrase patterns configured in `safety/denylist.json`. | Tunable via PR |
+| req-fedramp-20x-ksi-safety-1 | Three Severity Levels | Deprecated | The tool classifies anomalies as `block`, `warn`, or `info` per the flag catalog. | |
+| req-fedramp-20x-ksi-safety-2 | Block Aborts Run | Deprecated | Any `block`-severity flag aborts the refresh with non-zero exit; no wave is emitted. | |
+| req-fedramp-20x-ksi-safety-3 | Warn Requires Label | Deprecated | PRs carrying `warn`-level flags require a `safety-review-ok` label before merge. | CI enforces via branch protection / required status check |
+| req-fedramp-20x-ksi-safety-4 | Deletion Threshold At 10% | Deprecated | Mass-deletion block threshold is 10% of existing indicators in a single wave. | `MASS_DELETION` code |
+| req-fedramp-20x-ksi-safety-5 | Dynamic Committer Allowlist | Deprecated | Expected committer email domains are fetched at run time from GitHub org membership plus a static fallback. | |
+| req-fedramp-20x-ksi-safety-6 | Prompt-Injection Denylist | Deprecated | Content is scanned for known prompt-injection phrase patterns configured in `safety/denylist.json`. | Tunable via PR |
 
 ### Plugin Validation
 ----
@@ -681,7 +678,7 @@ This specification does not define:
 - crosswalks to other compliance frameworks (ISO 27001, SOC 2, etc.)
 - assessment-organization data such as 3PAO findings, ATO packages, or POA&Ms
 - per-CSP compliance state, posture, or scoring
-- the implementation details of the refresh skill (deferred to its own session)
+- (deprecated) the refresh skill — superseded by the runtime `KSICollector`
 - per-indicator iconography
 - FedRAMP program phase as a modeled field
 - `KSI-ABF` (Authorization by FedRAMP) — present in the docs site but not in the machine-readable consolidated rules
@@ -691,8 +688,6 @@ These are intentionally outside the v0 catalog-representation pass.
 
 ## Future Work
 
-- Define and design the `refresh-ksi-catalog` skill in detail, including diff algorithm, wave file schema, and UUIDv5 namespace derivation from `code`.
-- Stand up the nightly GitHub Action in the plugin repo that runs the refresh skill and opens PRs for generated waves.
 - Deliver `req-fedramp-20x-ksi-nist-crosswalk` once a NIST 800-53 plugin provides control nodes.
 - Introduce a `framework` model (likely in a future `compliance_core` plugin) and add a `CONTAINS_THEME` edge from framework to `ksi_theme`.
 - Add crosswalk edges to other compliance frameworks (ISO 27001, SOC 2, etc.).

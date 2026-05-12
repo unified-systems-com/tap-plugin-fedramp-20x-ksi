@@ -63,12 +63,23 @@ docker compose exec web uv run python manage.py validate_plugin plugins/fedramp_
 
 ## Catalog distribution
 
-The plugin distributes catalog content as versioned GRIFT waves in `grift/`. Each wave is a dated batch: `ksi-initial-YYYY-MM-DD.grift.json` for the first, `ksi-wave-YYYY-MM-DD.grift.json` for subsequent additions, modifications, and deprecations. Applied in order, waves reconstruct the current catalog.
+The plugin ships one initial seed file, `grift/ksi-seed.grift.json`, containing a current-time snapshot of themes and indicators. Ongoing catalog updates land via the **runtime KSI collector** (`plugins.fedramp_20x_ksi.collectors.ksi_catalog.KSICollector`), which fetches the upstream consolidated rules JSON, applies safety checks, diffs against grid state, and submits a GRIFT batch for changes only. The collector is registered with `tap_cares` and can be enqueued like any other collector.
 
-The `skills/refresh-ksi-catalog/` skill is authorship tooling that generates the next wave from the current FedRAMP 20x source. It is intended for the plugin maintainer or a CI agent, not for operators running TAP installations. Design is deferred; see `specs/spec-fedramp-20x-ksi-v0.md` for the intended contract.
+After install, register a `Collector` row and enqueue a run:
 
-v0 ships no wave files yet.
+```python
+from tap_cares.models import Collector
+from tap_cares.services import enqueue_collection
+
+col = Collector.objects.create(
+    name="FedRAMP 20x KSI Catalog",
+    collector_registry="plugins.fedramp_20x_ksi.collectors.ksi_catalog:ksi-catalog",
+)
+enqueue_collection(col)
+```
+
+See `specs/spec-fedramp-20x-ksi-collector.md` for the collector design, pinned source schema, safety checks (structural caps, character class, denylist, mass-deletion threshold), and the `tap.fedramp_20x_ksi.collection-v0` batch description format.
 
 ## Specification
 
-See [`specs/spec-fedramp-20x-ksi-v0.md`](specs/spec-fedramp-20x-ksi-v0.md) for the authoritative design — requirements, model field contracts, edge direction, GRIFT wave conventions, icon contract, and non-goals.
+See [`specs/spec-fedramp-20x-ksi-v0.md`](specs/spec-fedramp-20x-ksi-v0.md) for plugin-level requirements (models, edges, dimensions, icon contract) and [`specs/spec-fedramp-20x-ksi-collector.md`](specs/spec-fedramp-20x-ksi-collector.md) for the runtime collector.
