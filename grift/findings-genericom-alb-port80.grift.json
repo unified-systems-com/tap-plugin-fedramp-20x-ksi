@@ -1,0 +1,97 @@
+{
+  "metadata": {
+    "grift_version": "0"
+  },
+  "_reserved": {},
+  "batches": [
+    {
+      "batch_entity": {
+        "entity_id": "019dfd71-f28f-71cc-b09f-51602b19250f",
+        "entity_type": "batch",
+        "name": "fedramp_20x_ksi findings-genericom-alb-port80 v0.1.0",
+        "dimensions": {}
+      },
+      "batch_node": {
+        "source": "plugins.fedramp_20x_ksi",
+        "name": "fedramp_20x_ksi findings-genericom-alb-port80 v0.1.0",
+        "description": "Seeds an unencrypted-HTTP-listener finding against the prod-web-alb itself: nmap detects port 80/tcp open serving HTTP. In reality the listener is just a 301 redirect to https://, but the violation is recorded here so the exception process can be exercised against it. Backed by mocked nmap scanner_output evidence."
+      },
+      "nodes": [
+        {
+          "entity": {
+            "entity_id": "019dfd71-f28f-71cc-b09f-51614432a1c0",
+            "entity_type": "finding",
+            "name": "Unencrypted HTTP listener on ALB port 80",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "node": {
+            "name": "Unencrypted HTTP listener on ALB port 80",
+            "summary": "prod-web-alb is accepting plaintext HTTP on port 80 alongside its HTTPS listener.",
+            "description": "External nmap scanning confirms that prod-web-alb has an open TCP/80 listener serving HTTP, in addition to its HTTPS listener on TCP/443. Under FedRAMP 20x SC controls, public-facing endpoints must not accept unencrypted HTTP traffic — even briefly — because the request line, Host header, cookies, and any query-string parameters traverse the public internet in cleartext before any redirect can take effect.\n\nOperator note: in this deployment the port 80 listener is configured to issue an HTTP 301 redirect to the matching `https://` URL on the same host and serves no application content. The redirect does not retroactively encrypt the inbound request that triggered it — clients that send credentials or session cookies over HTTP have already leaked them by the time the 301 response is returned. A pure-redirect listener is therefore a common operational convenience but still represents a violation of the encryption-in-transit control as written. The intended resolution path is either (a) remove the port 80 listener entirely and rely on HSTS-preloaded clients, or (b) record an exception documenting the redirect-only behavior and the compensating controls (HSTS, no application routes mounted on :80).",
+            "status": "open"
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "019dfd71-f28f-71cc-b09f-5162f66c5a26",
+            "entity_type": "evidence",
+            "name": "nmap detects HTTP on prod-web-alb:80",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "node": {
+            "name": "nmap detects HTTP on prod-web-alb:80",
+            "kind": "scanner_output",
+            "description": "Automated check: `nmap -sV -p 80 --script=http-title,http-methods,http-headers prod-web-alb.genericom.com`\n\nThe scan confirms that TCP/80 is open on the ALB, that the listener speaks HTTP/1.1, and captures the response headers and status line. The `http-title` and `http-headers` NSE scripts are the canonical scripts for fingerprinting an HTTP listener — `-sV` performs the version probe (which is what flags the service as `http` rather than just `tcp/open`), and the two scripts add the `Server` banner, response headers, and any HTML `<title>` element to the report.\n\nLast run: 2026-05-06 09:12:44 UTC. Result: FAIL (port 80/tcp open, serving HTTP).\n\n--- raw output ---\n\nStarting Nmap 7.95 ( https://nmap.org ) at 2026-05-06 09:12 UTC\nNmap scan report for prod-web-alb.genericom.com (203.0.113.42)\nHost is up (0.018s latency).\nrDNS record for 203.0.113.42: prod-web-alb-1438927461.us-east-1.elb.amazonaws.com\n\nPORT   STATE SERVICE VERSION\n80/tcp open  http    Amazon Elastic Load Balancer httpd\n| http-methods:\n|_  Supported Methods: GET HEAD POST OPTIONS\n| http-headers:\n|   Server: awselb/2.0\n|   Date: Wed, 06 May 2026 09:12:44 GMT\n|   Content-Type: text/html\n|   Content-Length: 134\n|   Connection: keep-alive\n|   Location: https://prod-web-alb.genericom.com/\n|_  (Request type: HEAD)\n|_http-title: 301 Moved Permanently\nService Info: Device: load balancer\n\nService detection performed. Please report any incorrect results at https://nmap.org/submit/ .\nNmap done: 1 IP address (1 host up) scanned in 6.42 seconds\n\n--- what we are seeing ---\n\nPORT 80/tcp open\n  └── the ALB has an active listener on TCP/80 and accepts connections\n      from the public internet. This alone is the violation: SC-8 / SC-13\n      require that data-in-transit on public-facing endpoints be\n      cryptographically protected, and an open :80 listener accepts the\n      cleartext request before any application-layer redirect can run.\n\nSERVICE http, VERSION `awselb/2.0`\n  └── the `-sV` version probe negotiated HTTP/1.1 successfully and\n      identified the listener as the AWS ELB httpd, confirming this is\n      a real HTTP responder and not a stray TCP service masquerading\n      on port 80.\n\nhttp-headers: `Location: https://prod-web-alb.genericom.com/` + http-title `301 Moved Permanently`\n  └── the listener is configured as a redirect-only listener — every\n      response is HTTP 301 to the https:// equivalent. This is the\n      operational behavior the system owner is expected to document\n      in the exception request: no application content is served on\n      :80, only the redirect. The redirect is informative, not\n      exculpatory — the violation is the open cleartext port itself.\n\nResult: prod-web-alb is accepting plaintext HTTP on port 80. Listener responds with a 301 redirect to https, but the cleartext channel is open before the redirect is issued."
+          }
+        }
+      ],
+      "edges": [
+        {
+          "entity": {
+            "entity_id": "019dfd71-f28f-71cc-b09f-5163f0e161d6",
+            "entity_type": "edge",
+            "name": "prod-web-alb HAS_FINDING unencrypted-http-port80",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "edge": {
+            "from_entity_id": "019dd143-3e8f-73e4-b0fa-e6530f566b55",
+            "to_entity_id": "019dfd71-f28f-71cc-b09f-51614432a1c0",
+            "edge_type": "HAS_FINDING",
+            "properties": {}
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "019dfd72-0425-73b2-8c94-3f14432d6ae2",
+            "entity_type": "edge",
+            "name": "unencrypted-http-port80 RELATED_INDICATOR KSI-SVC-SNT",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "edge": {
+            "from_entity_id": "019dfd71-f28f-71cc-b09f-51614432a1c0",
+            "to_entity_id": "39301287-1b39-5358-82c3-f9aee118eb7b",
+            "edge_type": "RELATED_INDICATOR",
+            "properties": {"relationship_type": "violation"}
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "019dfd71-f28f-71cc-b09f-5164dce2aa8d",
+            "entity_type": "edge",
+            "name": "unencrypted-http-port80 HAS_EVIDENCE nmap detects HTTP",
+            "dimensions": {"compliance": "fedramp-20x"}
+          },
+          "edge": {
+            "from_entity_id": "019dfd71-f28f-71cc-b09f-51614432a1c0",
+            "to_entity_id": "019dfd71-f28f-71cc-b09f-5162f66c5a26",
+            "edge_type": "HAS_EVIDENCE",
+            "properties": {
+              "support_kind": "violation",
+              "note": "External nmap scan of prod-web-alb confirms an open TCP/80 listener responding with HTTP 301 redirects to https://."
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
