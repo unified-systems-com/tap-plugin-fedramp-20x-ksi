@@ -44,3 +44,11 @@ class Fedramp20xKsiConfig(TapPluginConfig):
         panel_type_registry.register(
             "fedramp-20x-ksi-instance-findings", KsiInstanceFindingsPanelType
         )
+
+        # Register the KSI catalog collector with tap_cares. Spec:
+        # plugins/fedramp_20x_ksi/specs/spec-fedramp-20x-ksi-collector.md
+        # req-fedramp-20x-ksi-collector-class-2.
+        from plugins.fedramp_20x_ksi.collectors import KSICollector
+        from tap_cares.registry import register_collector
+
+        register_collector("ksi-catalog", KSICollector)
