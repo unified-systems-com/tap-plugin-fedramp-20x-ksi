@@ -201,11 +201,12 @@ The safety denylist content moves from `skills/refresh-ksi-catalog/safety/denyli
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
 | req-fedramp-20x-ksi-collector-safety-1 | All Flags Block | Proposed | Every flag in the KSI block-class table is block-class for the KSI collector. There is no warn tier in v0; KSI's policy is that any recorded error aborts the run. | KSI policy decision; framework permits collectors to record-and-continue (see `req-tap-cares-collector-failure-mode-4`). |
-| req-fedramp-20x-ksi-collector-safety-2 | Follows Framework Failure Mode | Proposed | KSI signals failure via the framework protocol in `req-tap-cares-collector-failure-mode`: `self.record_error(...)` to accumulate structured detail, set `self.error_summary` to the one-line description of the highest-severity flag, then raise to terminate `run()`. The task body persists everything at terminal state. KSI does not re-specify the mechanics. | |
+| req-fedramp-20x-ksi-collector-safety-2 | Follows Framework Failure Mode | Proposed | KSI signals failure via the framework protocol in `req-tap-cares-collector-failure-mode`: `self.record_error(...)` accumulates every detectable safety / drift flag for the run, then `run()` raises `KSICollectorError` to terminate. The task body persists everything (including the count-derived `error_summary`) at terminal state. KSI does not set `self.error_summary` directly and does not re-specify the mechanics. | |
 | req-fedramp-20x-ksi-collector-safety-3 | KSI Code Vocabulary | Proposed | The block-class code table above (`SCHEMA_DRIFT`, `UNKNOWN_FIELD`, `STRUCTURAL_CAP`, `CHARACTER_CLASS`, `DENYLIST_PHRASE`, `OUTLIER_STRING_LENGTH`, `MASS_DELETION`, `UPSTREAM_OVERSIZED`, `UPSTREAM_BAD_CONTENT_TYPE`) is the KSI-specific contract; new codes require updating this spec. | |
 | req-fedramp-20x-ksi-collector-safety-4 | Denylist Ported | Proposed | The existing safety denylist content is moved into the plugin's `collectors/safety/` directory byte-for-byte. | |
 | req-fedramp-20x-ksi-collector-safety-5 | Trust Model Documented | Proposed | The spec explicitly states the HTTPS-only trust model and its limitations relative to a future git-backed fetch. | |
 | req-fedramp-20x-ksi-collector-safety-6 | Dropped Checks Documented | Proposed | CI-specific checks (integrity rewind, origin URL, commit metadata) are documented as not-applicable to v0 HTTPS fetch and named as recovered-by the future git collector base. | |
+| req-fedramp-20x-ksi-collector-safety-7 | Schema Drift Accumulates | Proposed | Pinned-schema validation uses `jsonschema.Draft202012Validator(schema).iter_errors(source)` and records one `SCHEMA_DRIFT` entry per validation error before raising. The operator gets the full drift picture in a single run instead of fixing one site, re-running, and discovering the next. | The upstream FedRAMP schema is actively evolving; accumulating drift sites surfaces the full delta per run. |
 
 ---
 
@@ -347,9 +348,9 @@ The KSI collector uses the existing `CollectionJob` lifecycle states (`READY`/`R
 #### Failed run
 
 - `status = FAILED`
-- `error_summary` carries the one-line description of the highest-severity block flag (collector-set; renders in admin lists, job headers).
+- `error_summary` carries the count-derived one-liner (`"Failed with N error(s)"`) computed by the task body from `len(results["error"])`; see `req-tap-cares-collector-failure-mode-3`.
 - `grift_batches = {"imported": [], "skipped": []}` — nothing reached the grid.
-- `results["error"]` contains one entry per flag raised, each with its own `site` UUIDv7, `code`, `message`, and `context` (the dict of relevant counts, fragments, or paths into the source document — collector's call what's useful for the investigator).
+- `results["error"]` contains one entry per flag raised, each with its own `site` UUIDv7, `code`, `message`, and `context` (the dict of relevant counts, fragments, or paths into the source document — collector's call what's useful for the investigator). Schema-drift runs in particular accumulate one entry per `iter_errors` validation failure so a single run surfaces every drift site rather than only the first.
 - `results["info"]` may contain partial-run breadcrumbs (`RUN_STARTED`, `UPSTREAM_FETCHED`) for runs that got past initial steps before failing.
 
 #### Result event vocabulary (v0)
@@ -383,7 +384,7 @@ The `warn` bucket is unused by the v0 KSI collector — every safety flag is blo
 | --- | --- | :---: | --- | --- |
 | req-fedramp-20x-ksi-collector-job-result-1 | No New Status States | Proposed | The KSI collector uses only the existing `READY`/`RUNNING`/`FAILED`/`SUCCESSFUL` states. | |
 | req-fedramp-20x-ksi-collector-job-result-2 | Successful Empty | Proposed | A run that detects no changes still succeeds; `grift_batches.imported` is empty; `results["info"]` records `DIFF_EMPTY`. | |
-| req-fedramp-20x-ksi-collector-job-result-3 | Block → FAILED | Proposed | Any block flag fails the job. `record_error` is called for every flag raised; `error_summary` is set to the highest-severity flag's message. | |
+| req-fedramp-20x-ksi-collector-job-result-3 | Block → FAILED | Proposed | Any block flag fails the job. `record_error` is called for every flag raised; `error_summary` is the count-derived one-liner produced by the task body (see `req-tap-cares-collector-failure-mode-3`). | |
 | req-fedramp-20x-ksi-collector-job-result-4 | Vocabulary Documented | Proposed | The v0 event vocabulary above is the contract; new codes require updating the spec. | |
 | req-fedramp-20x-ksi-collector-job-result-5 | Site UUIDs Unique Per Callsite | Proposed | Each `record_*` call in the KSI collector code has a hardcoded UUIDv7 `site` value; the repo-wide uniqueness test (`req-tap-cares-collector-job-model-15`) covers KSI callsites. | |
 | req-fedramp-20x-ksi-collector-job-result-6 | Warn Bucket Unused | Proposed | The KSI collector emits no `warn`-level entries in v0; all safety flags are block-class. | |

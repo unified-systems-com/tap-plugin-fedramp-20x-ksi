@@ -12,7 +12,15 @@
         "title": { "type": "string" },
         "description": { "type": "string" },
         "version": { "type": "string" },
-        "last_updated": { "type": "string", "format": "date" }
+        "last_updated": { "type": "string", "format": "date" },
+        "default_artifacts": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "FRR": { "type": "array", "items": { "type": "string" } },
+            "KSI": { "type": "array", "items": { "type": "string" } }
+          }
+        }
       },
       "additionalProperties": false
     },
@@ -51,6 +59,7 @@
             "name": { "type": "string" },
             "web_name": { "type": "string" },
             "short_name": { "type": "string", "pattern": "^[A-Z]{3}$" },
+            "status": { "type": "string" },
             "indicators": {
               "type": "object",
               "patternProperties": {

@@ -271,15 +271,20 @@ class KSICollector(CollectorBase):
             )
 
         schema = _load_pinned_schema()
-        try:
-            jsonschema.validate(instance=source, schema=schema)
-        except jsonschema.ValidationError as exc:
-            self._abort(
+        # Accumulate every validation error rather than bailing on the first. The
+        # upstream schema is actively evolving, so a single run frequently surfaces
+        # multiple drift points; recording each gives the operator a complete
+        # picture in one cycle instead of forcing iterative whack-a-mole.
+        validator = jsonschema.Draft202012Validator(schema)
+        schema_errors = list(validator.iter_errors(source))
+        for exc in schema_errors:
+            path = self._jsonpath(exc.absolute_path)
+            self.record_error(
                 _SITE_SCHEMA_DRIFT,
                 "SCHEMA_DRIFT",
-                f"Upstream failed pinned-schema validation at {self._jsonpath(exc.absolute_path)}: {exc.message}",
+                f"Upstream failed pinned-schema validation at {path}: {exc.message}",
                 context={
-                    "path": self._jsonpath(exc.absolute_path),
+                    "path": path,
                     "validator": exc.validator,
                 },
             )
@@ -289,11 +294,19 @@ class KSICollector(CollectorBase):
         allowed_top = set(schema.get("properties", {}).keys())
         extras = set(source.keys()) - allowed_top
         if extras:
-            self._abort(
+            self.record_error(
                 _SITE_UNKNOWN_FIELD,
                 "UNKNOWN_FIELD",
                 f"Upstream contains unknown top-level keys: {sorted(extras)}",
                 context={"unknown_keys": sorted(extras)},
+            )
+
+        # Raise once after the full sweep so the task body's terminal patch carries
+        # every recorded error. The count-based error_summary is derived from
+        # self.results["error"] at terminal write time.
+        if self.results["error"]:
+            raise KSICollectorError(
+                f"Upstream failed pinned-schema validation with {len(self.results['error'])} error(s)."
             )
 
         return source
@@ -713,17 +726,11 @@ class KSICollector(CollectorBase):
         """Record a block-class flag and raise KSICollectorError to halt the run.
 
         Follows the framework failure protocol (req-tap-cares-collector-failure-mode):
-        record the structured error, set the at-a-glance error_summary, then raise.
-        The run_collector task body catches the raised exception and writes the
-        FAILED terminal patch.
+        record the structured error and raise. The task body's terminal patch
+        derives `error_summary` from the count of recorded errors, so the
+        collector does not set it directly.
         """
         self.record_error(site, code, message, context=context)
-        # Highest-severity-wins: the first block flag sets the terminal summary;
-        # later block flags are recorded but don't overwrite the summary, since
-        # _abort raises immediately and there is no "later" within this run.
-        if not self.error_summary:
-            # Trim the error_summary to the field's max_length (2048).
-            self.error_summary = message[:2048]
         raise KSICollectorError(message)
 
     @staticmethod
