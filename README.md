@@ -65,17 +65,16 @@ docker compose exec web uv run python manage.py validate_plugin plugins/fedramp_
 
 The plugin ships one initial seed file, `grift/ksi-seed.grift.json`, containing a current-time snapshot of themes and indicators. Ongoing catalog updates land via the **runtime KSI collector** (`plugins.fedramp_20x_ksi.collectors.ksi_catalog.KSICollector`), which fetches the upstream consolidated rules JSON, applies safety checks, diffs against grid state, and submits a GRIFT batch for changes only. The collector is registered with `tap_cares` and can be enqueued like any other collector.
 
-After install, register a `Collector` row and enqueue a run:
+The on-grid `Collector` node is created automatically at plugin load by `register_collector(...)` in `Fedramp20xKsiConfig.ready()`; no manual seeding required. To enqueue a run:
 
 ```python
 from tap_cares.models import Collector
-from tap_cares.services import enqueue_collection
+from tap_cares.services import run_collection
 
-col = Collector.objects.create(
-    name="FedRAMP 20x KSI Catalog",
+col = Collector.objects.get(
     collector_registry="plugins.fedramp_20x_ksi.collectors.ksi_catalog:ksi-catalog",
 )
-enqueue_collection(col)
+run_collection(col)
 ```
 
 See `specs/spec-fedramp-20x-ksi-collector.md` for the collector design, pinned source schema, safety checks (structural caps, character class, denylist, mass-deletion threshold), and the `tap.fedramp_20x_ksi.collection-v0` batch description format.
