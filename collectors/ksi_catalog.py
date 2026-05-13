@@ -10,14 +10,13 @@ Pipeline:
     5. compute the new / modified / removed diff
     6. check mass-deletion threshold                  (req-...-collector-mass-deletion)
     7. assemble one GRIFT batch carrying only changes (req-...-collector-grift)
-    8. submit via tap_cares.grift.submit_collector_grift
+    8. submit via self.submit_grift
 
-Each pipeline stage emits structured events to `CollectionJob.results` via
-`tap_cares.results.record_info` / `record_error`. Block-class flags raise
-`KSICollectorError`, which:
-    - records the flag in `results["error"]` with a fresh site UUIDv7
-    - sets `CollectionJob.error_summary` to a one-line summary
-    - aborts the run before any GRIFT submission
+Each pipeline stage emits structured events into `self.results` via
+`self.record_info` / `self.record_error`. The task body persists the full
+accumulator to `CollectionJob.results` at terminal state. Block-class flags
+raise `KSICollectorError` after recording the structured detail and setting
+`self.error_summary`; the task body then writes the FAILED terminal patch.
 
 The collector is HTTPS-only in v0; provenance posture is documented in the
 spec's Runtime Safety Model section. A future `GitCollectorBase` will recover
@@ -41,9 +40,6 @@ from uuid import UUID, uuid5, uuid7
 import jsonschema
 
 from tap_cares.collectors import CollectorBase, CollectorConfig
-from tap_cares.grift import submit_collector_grift
-from tap_cares.models import CollectionJob, CollectionJobStatus
-from tap_cares.results import record_error, record_info
 
 # ---------------------------------------------------------------------------
 # Pinned assets and constants
@@ -100,9 +96,10 @@ _SITE_UPSTREAM_FETCH_FAILED = "019e1e15-b32d-73d3-be2b-92cea597e807"
 class KSICollectorError(Exception):
     """A block-class safety flag fired during collection.
 
-    Caught by `run()` so the CollectionJob is marked FAILED and the run
-    aborts before any GRIFT submission. The error message becomes
-    `CollectionJob.error_summary`.
+    Raised from `_abort()` after structured error detail is recorded into
+    `self.results["error"]` and `self.error_summary` is set. The `run_collector`
+    task body catches the exception and writes the FAILED terminal patch to
+    `CollectionJob` (status, finished_at, error_summary, results, grift_batches).
     """
 
 
@@ -168,64 +165,50 @@ class KSICollector(CollectorBase):
     # _fetch_upstream_bytes to inject canned content without touching the
     # network.
 
-    def __init__(self, config: CollectorConfig) -> None:
-        super().__init__(config)
-        self._job: CollectionJob | None = None
-        self._error_summary: str = ""
-
     # -- Public entrypoint ---------------------------------------------------
 
     def run(self) -> None:
-        self._job = CollectionJob.objects.get(entity_id=self.config.collection_job_entity_id)
-        record_info(self._job, _SITE_RUN_STARTED, "RUN_STARTED", "KSI catalog collection started.")
-        try:
-            body, content_sha256, byte_size = self._fetch_upstream_bytes()
-            source = self._parse_and_validate(body, content_sha256, byte_size)
-            self._check_safety(source)
-            prior = self._read_grid_state()
-            diff = self._compute_diff(source, prior)
-            self._check_mass_deletion(diff, prior)
+        self.record_info(_SITE_RUN_STARTED, "RUN_STARTED", "KSI catalog collection started.")
+        body, content_sha256, byte_size = self._fetch_upstream_bytes()
+        source = self._parse_and_validate(body, content_sha256, byte_size)
+        self._check_safety(source)
+        prior = self._read_grid_state()
+        diff = self._compute_diff(source, prior)
+        self._check_mass_deletion(diff, prior)
 
-            if self._diff_is_empty(diff):
-                record_info(
-                    self._job,
-                    _SITE_DIFF_EMPTY,
-                    "DIFF_EMPTY",
-                    "Upstream matches grid; nothing to import.",
-                    context={
-                        "catalog_size": len(prior["indicators"]),
-                    },
-                )
-            else:
-                document = self._assemble_batch(
-                    source=source,
-                    diff=diff,
-                    content_sha256=content_sha256,
-                    byte_size=byte_size,
-                    prior_indicator_count=len(prior["indicators"]),
-                )
-                result = submit_collector_grift(self._job, document)
-                record_info(
-                    self._job,
-                    _SITE_GRIFT_SUBMITTED,
-                    "GRIFT_SUBMITTED",
-                    f"GRIFT batch submitted ({result.counts.batches_imported} imported, "
-                    f"{result.counts.batches_skipped} skipped).",
-                    context={
-                        "imported": [b.batch_entity_id for b in result.imported_batches],
-                        "skipped": [b.batch_entity_id for b in result.skipped_batches],
-                    },
-                )
+        if self._diff_is_empty(diff):
+            self.record_info(
+                _SITE_DIFF_EMPTY,
+                "DIFF_EMPTY",
+                "Upstream matches grid; nothing to import.",
+                context={
+                    "catalog_size": len(prior["indicators"]),
+                },
+            )
+        else:
+            document = self._assemble_batch(
+                source=source,
+                diff=diff,
+                content_sha256=content_sha256,
+                byte_size=byte_size,
+                prior_indicator_count=len(prior["indicators"]),
+            )
+            result = self.submit_grift(document)
+            self.record_info(
+                _SITE_GRIFT_SUBMITTED,
+                "GRIFT_SUBMITTED",
+                f"GRIFT batch submitted ({result.counts.batches_imported} imported, "
+                f"{result.counts.batches_skipped} skipped).",
+                context={
+                    "imported": [str(b.batch_entity_id) for b in result.imported_batches],
+                    "skipped": [str(b.batch_entity_id) for b in result.skipped_batches],
+                },
+            )
 
-            record_info(self._job, _SITE_RUN_COMPLETED, "RUN_COMPLETED", "KSI catalog collection complete.")
-        except KSICollectorError:
-            # error_summary already set; record_error already called. Mark the
-            # job's terminal summary and re-raise so run_collector flips status
-            # to FAILED.
-            if self._error_summary:
-                self._job.error_summary = self._error_summary
-                self._job.save(update_fields=["error_summary"])
-            raise
+        self.record_info(_SITE_RUN_COMPLETED, "RUN_COMPLETED", "KSI catalog collection complete.")
+        # On exception: KSICollectorError propagates with self.error_summary already
+        # set in _abort() and self.results["error"] populated; the run_collector
+        # task body catches and persists the FAILED terminal patch.
 
     # -- Pipeline stages -----------------------------------------------------
 
@@ -264,8 +247,7 @@ class KSICollector(CollectorBase):
             )
 
         sha256 = hashlib.sha256(body).hexdigest()
-        record_info(
-            self._job,
+        self.record_info(
             _SITE_UPSTREAM_FETCHED,
             "UPSTREAM_FETCHED",
             f"Fetched {len(body)} bytes from upstream.",
@@ -551,8 +533,7 @@ class KSICollector(CollectorBase):
             "new_themes_count": len(new_themes),
             "theme_lookup": theme_lookup,
         }
-        record_info(
-            self._job,
+        self.record_info(
             _SITE_DIFF_COMPUTED,
             "DIFF_COMPUTED",
             (
@@ -729,15 +710,20 @@ class KSICollector(CollectorBase):
     # -- Helpers -------------------------------------------------------------
 
     def _abort(self, site: str, code: str, message: str, *, context: dict[str, Any] | None = None) -> None:
-        """Record a block-class flag and raise KSICollectorError to halt the run."""
-        assert self._job is not None, "_abort called before _job was resolved"
-        record_error(self._job, site, code, message, context=context)
+        """Record a block-class flag and raise KSICollectorError to halt the run.
+
+        Follows the framework failure protocol (req-tap-cares-collector-failure-mode):
+        record the structured error, set the at-a-glance error_summary, then raise.
+        The run_collector task body catches the raised exception and writes the
+        FAILED terminal patch.
+        """
+        self.record_error(site, code, message, context=context)
         # Highest-severity-wins: the first block flag sets the terminal summary;
         # later block flags are recorded but don't overwrite the summary, since
         # _abort raises immediately and there is no "later" within this run.
-        if not self._error_summary:
+        if not self.error_summary:
             # Trim the error_summary to the field's max_length (2048).
-            self._error_summary = message[:2048]
+            self.error_summary = message[:2048]
         raise KSICollectorError(message)
 
     @staticmethod

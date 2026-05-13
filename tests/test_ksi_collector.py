@@ -26,7 +26,7 @@ from plugins.fedramp_20x_ksi.collectors.ksi_catalog import (
 from tap_cares.collectors import CollectorConfig
 from tap_cares.models import CollectionJob, CollectionJobStatus, Collector
 from tap_cares.registry import collector_registry, register_collector
-from tap_cares.services import enqueue_collection
+from tap_cares.services import run_collection
 
 _FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "ksi_catalog"
 _CURRENT_FIXTURE = _FIXTURE_DIR / "current.json"
@@ -55,14 +55,11 @@ def _make_collector_with_fixture(doc: dict | None = None):
 
     class _FixtureKSICollector(KSICollector):
         def _fetch_upstream_bytes(self) -> tuple[bytes, str, int]:
-            from tap_cares.results import record_info
-
             from plugins.fedramp_20x_ksi.collectors.ksi_catalog import (
                 _SITE_UPSTREAM_FETCHED,
             )
 
-            record_info(
-                self._job,
+            self.record_info(
                 _SITE_UPSTREAM_FETCHED,
                 "UPSTREAM_FETCHED",
                 f"Fetched {size} bytes from fixture.",
@@ -74,12 +71,23 @@ def _make_collector_with_fixture(doc: dict | None = None):
     return _FixtureKSICollector
 
 
-def _make_on_grid_collector(registry_key: str = "plugins.fedramp_20x_ksi.tests.fixtures.injected:ksi-catalog-test") -> Collector:
-    return Collector.objects.create(
-        name="KSI Catalog (test)",
-        description="Fixture-driven KSI collector under test.",
-        collector_registry=registry_key,
+_TEST_REGISTRY_KEY = "plugins.fedramp_20x_ksi.tests.fixtures.injected:ksi-catalog-test"
+
+
+def _register_and_fetch(cls, *, name: str = "KSI Catalog (test)", description: str = "Fixture-driven KSI collector under test.") -> Collector:
+    """Register `cls` under the test scope:key AND return the on-grid Collector.
+
+    After the dual-existence refactor, register_collector creates the on-grid
+    Collector node deterministically. This helper centralizes the registration
+    + fetch so each test just gets a usable Collector instance.
+    """
+    register_collector(
+        key="ksi-catalog-test",
+        cls=cls,
+        name=name,
+        description=description,
     )
+    return Collector.objects.get(collector_registry=_TEST_REGISTRY_KEY)
 
 
 @pytest.fixture
@@ -101,9 +109,8 @@ class TestHappyPathFreshInstall:
 
     def test_run_succeeds_and_submits_batch(self, isolate_collector_registry):
         cls = _make_collector_with_fixture()
-        register_collector("ksi-catalog-test", cls)
-        col = _make_on_grid_collector()
-        job = enqueue_collection(col)
+        col = _register_and_fetch(cls)
+        job = run_collection(col)
         job.refresh_from_db()
         assert job.status == CollectionJobStatus.SUCCESSFUL
         assert job.error_summary == ""
@@ -120,9 +127,8 @@ class TestHappyPathFreshInstall:
         from plugins.fedramp_20x_ksi.models import KsiIndicator, KsiTheme
 
         cls = _make_collector_with_fixture()
-        register_collector("ksi-catalog-test", cls)
-        col = _make_on_grid_collector()
-        enqueue_collection(col)
+        col = _register_and_fetch(cls)
+        run_collection(col)
         # Fixture currently has 10 themes and ~50 indicators per FedRAMP catalog.
         assert KsiTheme.objects.count() >= 1
         assert KsiIndicator.objects.count() >= 1
@@ -131,9 +137,8 @@ class TestHappyPathFreshInstall:
         from tap_grid.models import Batch
 
         cls = _make_collector_with_fixture()
-        register_collector("ksi-catalog-test", cls)
-        col = _make_on_grid_collector()
-        job = enqueue_collection(col)
+        col = _register_and_fetch(cls)
+        job = run_collection(col)
         job.refresh_from_db()
         batch_id = job.grift_batches["imported"][0]
         batch = Batch.objects.get(entity_id=batch_id)
@@ -153,14 +158,13 @@ class TestHappyPathFreshInstall:
 class TestEmptyDiff:
     def test_second_run_with_no_changes_is_noop(self, isolate_collector_registry):
         cls = _make_collector_with_fixture()
-        register_collector("ksi-catalog-test", cls)
-        col = _make_on_grid_collector()
+        col = _register_and_fetch(cls)
 
-        first = enqueue_collection(col)
+        first = run_collection(col)
         first.refresh_from_db()
         assert first.status == CollectionJobStatus.SUCCESSFUL
 
-        second = enqueue_collection(col)
+        second = run_collection(col)
         second.refresh_from_db()
         assert second.status == CollectionJobStatus.SUCCESSFUL
         assert second.grift_batches["imported"] == []
@@ -182,10 +186,9 @@ class TestBlockFlags:
         # The Django immediate task backend captures exceptions on the TaskResult
         # instead of re-raising to the caller (see test_task_execution.py for
         # the rationale). Failure surfaces via job.status / job.results, not
-        # via an exception out of enqueue_collection.
-        register_collector("ksi-catalog-test", cls)
-        col = _make_on_grid_collector()
-        job = enqueue_collection(col)
+        # via an exception out of run_collection.
+        col = _register_and_fetch(cls)
+        job = run_collection(col)
         job.refresh_from_db()
         assert job.status == CollectionJobStatus.FAILED
         assert job.grift_batches["imported"] == []
@@ -233,9 +236,8 @@ class TestBlockFlags:
         cls = _make_collector_with_fixture(doc)
         # Pinned schema rejects unknown top-level keys via UNKNOWN_FIELD or
         # SCHEMA_DRIFT depending on which check fires first.
-        register_collector("ksi-catalog-test", cls)
-        col = _make_on_grid_collector()
-        job = enqueue_collection(col)
+        col = _register_and_fetch(cls)
+        job = run_collection(col)
         job.refresh_from_db()
         assert job.status == CollectionJobStatus.FAILED
         codes = [e["code"] for e in job.results["error"]]
@@ -272,9 +274,8 @@ class TestBlockFlags:
     def test_mass_deletion(self, isolate_collector_registry):
         # First successful run seeds the grid.
         cls = _make_collector_with_fixture()
-        register_collector("ksi-catalog-test", cls)
-        col = _make_on_grid_collector()
-        enqueue_collection(col)
+        col = _register_and_fetch(cls)
+        run_collection(col)
 
         # Second run with most indicators stripped out trips MASS_DELETION.
         doc = _load_fixture()
@@ -282,11 +283,13 @@ class TestBlockFlags:
             indicators = theme.get("indicators", {})
             kept = dict(list(indicators.items())[:1])  # keep only one per theme
             theme["indicators"] = kept
-        # Re-register a new collector class with the stripped fixture.
+        # Re-register a new collector class with the stripped fixture. The
+        # on-grid Collector node is reused (same scope:key → same UUIDv5);
+        # register_collector upserts the row's mutable fields.
         collector_registry._reset_for_testing()
         cls2 = _make_collector_with_fixture(doc)
-        register_collector("ksi-catalog-test", cls2)
-        second = enqueue_collection(col)
+        col = _register_and_fetch(cls2)
+        second = run_collection(col)
         second.refresh_from_db()
         assert second.status == CollectionJobStatus.FAILED
         codes = [e["code"] for e in second.results["error"]]
@@ -307,13 +310,20 @@ def test_live_fetch_round_trip(isolate_collector_registry):
     `pytest -m live_fetch` when you want to validate against the live
     upstream — e.g., before tagging a release.
     """
-    register_collector("ksi-catalog-test", KSICollector)
-    col = _make_on_grid_collector(
-        registry_key="plugins.fedramp_20x_ksi.collectors.ksi_catalog:ksi-catalog-test"
+    # Live KSICollector ships under its own module path, so registering it
+    # under "ksi-catalog-test" yields a different qualified key than the
+    # fixture path. register_collector creates the matching Collector node.
+    register_collector(
+        key="ksi-catalog-test",
+        cls=KSICollector,
+        name="KSI Catalog (live test)",
+        description="Live-network KSI collector test.",
     )
+    live_key = "plugins.fedramp_20x_ksi.collectors.ksi_catalog:ksi-catalog-test"
+    col = Collector.objects.get(collector_registry=live_key)
     # We don't assert on diff shape (upstream changes). The immediate backend
     # captures any KSICollectorError on the TaskResult; job.status is the
     # source of truth here.
-    job = enqueue_collection(col)
+    job = run_collection(col)
     job.refresh_from_db()
     assert job.status in (CollectionJobStatus.SUCCESSFUL, CollectionJobStatus.FAILED)

@@ -45,10 +45,22 @@ class Fedramp20xKsiConfig(TapPluginConfig):
             "fedramp-20x-ksi-instance-findings", KsiInstanceFindingsPanelType
         )
 
-        # Register the KSI catalog collector with tap_cares. Spec:
+        # Register the KSI catalog collector with tap_cares. Per the
+        # dual-existence pattern (tap_grid/specs/spec-grid-dual-existence.md)
+        # this single call both registers the runner class AND upserts the
+        # on-grid Collector node. Spec:
         # plugins/fedramp_20x_ksi/specs/spec-fedramp-20x-ksi-collector.md
         # req-fedramp-20x-ksi-collector-class-2.
         from plugins.fedramp_20x_ksi.collectors import KSICollector
         from tap_cares.registry import register_collector
 
-        register_collector("ksi-catalog", KSICollector)
+        register_collector(
+            key="ksi-catalog",
+            cls=KSICollector,
+            name="FedRAMP 20x KSI Catalog",
+            description=(
+                "Fetches the FedRAMP 20x Key Security Indicators catalog from the "
+                "upstream rules repo, validates against pinned safety rules, diffs "
+                "against the local grid, and imports changes as a GRIFT batch."
+            ),
+        )
