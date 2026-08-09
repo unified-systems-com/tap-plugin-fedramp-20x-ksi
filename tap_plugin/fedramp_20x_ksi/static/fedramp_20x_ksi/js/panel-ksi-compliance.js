@@ -407,8 +407,15 @@
           container.appendChild(img);
         } else if (themeRow && themeRow.theme_short_name && iconsBase) {
           var img2 = document.createElement("img");
+          // Slug-sanitize before building the URL: theme_short_name is grid data, and a
+          // hostile value could otherwise steer the src (path traversal / absolute URL).
+          // Known short names are [a-z0-9-] already, so this is a no-op for real data
+          // (CodeQL js/xss-through-dom).
           img2.src =
-            iconsBase + "ksi-" + themeRow.theme_short_name.toLowerCase() + ".svg";
+            iconsBase +
+            "ksi-" +
+            themeRow.theme_short_name.toLowerCase().replace(/[^a-z0-9-]/g, "") +
+            ".svg";
           img2.alt = "";
           img2.className = "ksi-group-icon";
           container.appendChild(img2);
