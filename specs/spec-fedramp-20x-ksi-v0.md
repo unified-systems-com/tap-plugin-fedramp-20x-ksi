@@ -62,6 +62,7 @@ Phases (Phase One, Phase Two) are a program-level concept. The plugin tracks whi
 ### Plugin Scope
 ----
 RID: `req-fedramp-20x-ksi-scope`
+
 Status: `Implemented`
 
 The plugin models the FedRAMP 20x KSI catalog: themes (e.g. KSI-CNA, KSI-IAM, KSI-MLA) and the individual indicators within each theme.
@@ -105,6 +106,7 @@ The plugin excludes in v0:
 ### Dimension Strategy
 ----
 RID: `req-fedramp-20x-ksi-dimensions`
+
 Status: `Implemented`
 
 Every TAP-managed type in the plugin declares `{"compliance": "fedramp-20x"}` as its default dimensions.
@@ -129,6 +131,7 @@ The plugin seeds a dimension node for `compliance: fedramp-20x` at `grift/dimens
 ### Model Catalog
 ----
 RID: `req-fedramp-20x-ksi-models`
+
 Status: `Implemented`
 
 The plugin declares two TAP-managed models: `ksi_theme` and `ksi_indicator`.
@@ -180,6 +183,7 @@ The plugin should not invent validation, naming, or grouping conventions that di
 ### Indicator Status
 ----
 RID: `req-fedramp-20x-ksi-status`
+
 Status: `Implemented`
 
 Each `ksi_indicator` carries a `status` field with one of three values: `draft`, `published`, `deprecated`.
@@ -207,6 +211,7 @@ Per-status transition history is not tracked separately by the plugin in v0. Onc
 ### Theme Status
 ----
 RID: `req-fedramp-20x-ksi-theme-status`
+
 Status: `Backlog`
 
 Upstream KSI themes carry a `status` field (currently `"stable"` for all eleven themes in the 2026 Public Preview) that we drop on ingest. `KsiTheme` has no `status` column and `_theme_state_from_source` in the KSI collector ignores the upstream value. The moment FedRAMP transitions a theme out of `"stable"` (e.g. marks one `"deprecated"` or `"draft"`) we'd silently keep presenting it as live.
@@ -231,6 +236,7 @@ The pinned source schema already declares `status` as an optional string on each
 ### Indicator Certification Classes
 ----
 RID: `req-fedramp-20x-ksi-classes`
+
 Status: `Implemented`
 
 Each `ksi_indicator` carries a `classes` list identifying the FedRAMP Certification Classes to which it applies.
@@ -271,6 +277,7 @@ Promote classes to first-class `ksi_class` nodes with `APPLIES_AT_CLASS` edges i
 ### Class-Specific Statement Variants
 ----
 RID: `req-fedramp-20x-ksi-class-variants`
+
 Status: `Implemented`
 
 Each `ksi_indicator` carries an optional `class_variants` JSON field preserving the source `varies_by_class` structure when present.
@@ -295,6 +302,7 @@ The source shape is preserved rather than normalized because the format is still
 ### NIST Control References
 ----
 RID: `req-fedramp-20x-ksi-controls`
+
 Status: `Implemented`
 
 Each `ksi_indicator` carries a `controls` list of NIST 800-53 Rev 5 control IDs referenced by the indicator.
@@ -316,6 +324,7 @@ In v0 the `controls` field is a simple list. The plugin does not create graph ed
 ### NIST Control Crosswalk Edges
 ----
 RID: `req-fedramp-20x-ksi-nist-crosswalk`
+
 Status: `Backlog`
 
 Promote each `ksi_indicator.controls` entry to a `MAPS_TO_CONTROL` edge from the indicator to an actual NIST 800-53 Rev 5 control node.
@@ -342,6 +351,7 @@ Open questions when this is picked up:
 ### Source Metadata Fields
 ----
 RID: `req-fedramp-20x-ksi-metadata`
+
 Status: `Implemented`
 
 Each `ksi_indicator` preserves source metadata fields: `updated_log`, `terms`, `reference`, and `reference_url`.
@@ -370,6 +380,7 @@ Promote `terms` list entries to `REFERENCES_TERM` edges once a term-node model e
 ### Edge Types
 ----
 RID: `req-fedramp-20x-ksi-edges`
+
 Status: `Implemented`
 
 The plugin declares one edge type: `CONTAINS_INDICATOR`.
@@ -395,6 +406,7 @@ If a future `framework` model is introduced (in this plugin or in a future `comp
 ### Icons
 ----
 RID: `req-fedramp-20x-ksi-icons`
+
 Status: `Implemented`
 
 The plugin binds one canonical icon to `ksi_theme` and one to `ksi_indicator` for v0, consistent with TAP's v1 type-level icon contract. The full per-theme icon set ships as static assets for use by dashboards and templates that look up icons by theme code, and for future promotion to canonical icons once instance-level icon overrides land in `tap_grid`.
@@ -445,6 +457,7 @@ When `req-grid-icon-instance` is implemented, rebind per-theme icons as instance
 ### Reference Data Distribution
 ----
 RID: `req-fedramp-20x-ksi-reference`
+
 Status: `Implemented`
 
 The plugin ships **one** catalog seed file, `grift/ksi-seed.grift.json`, containing a point-in-time snapshot of themes and indicators with deterministic UUIDv5 entity IDs derived from `code`. The seed bootstraps fresh installs; ongoing updates (additions, modifications, deprecations) flow through the runtime `KSICollector` defined in `spec-fedramp-20x-ksi-collector.md`, which submits a `tap.fedramp_20x_ksi.collection-v0` GRIFT batch per run.
@@ -472,6 +485,7 @@ The previous multi-wave distribution scheme (`ksi-initial-YYYY-MM-DD.grift.json`
 ### Catalog Refresh Workflow
 ----
 RID: `req-fedramp-20x-ksi-refresh`
+
 Status: `Deprecated`
 
 **Deprecated.** The authorship-tooling refresh workflow (`skills/refresh-ksi-catalog/`, the upstream submodule, and `.github/workflows/refresh-catalog.yml`) has been removed and replaced by the runtime `KSICollector`. See `spec-fedramp-20x-ksi-collector.md` for the canonical design — same upstream, same safety checks, same deterministic UUIDv5 derivation, but executed against a live grid via `tap_cares` rather than authored into wave files at CI time. The historical design below is retained for context only and is not implemented.
@@ -556,6 +570,7 @@ The nightly GitHub Action in the plugin repo:
 ### Wave Description Schema
 ----
 RID: `req-fedramp-20x-ksi-wave-schema`
+
 Status: `Deprecated`
 
 **Deprecated.** Wave files and their `tap.fedramp_20x_ksi.wave-v0` description format have been removed. Runtime collector batches use `tap.fedramp_20x_ksi.collection-v0` (pinned in `collectors/pinned/collection-v0.schema.json`); the bootstrap seed uses the simpler `tap.fedramp_20x_ksi.seed-v0` marker described in `req-fedramp-20x-ksi-reference`. The historical wave schema is retained below for context only.
@@ -613,6 +628,7 @@ Wave provenance is queryable at `Batch.description_json__data__source__commit_to
 ### Refresh Safety Model
 ----
 RID: `req-fedramp-20x-ksi-safety`
+
 Status: `Deprecated`
 
 **Deprecated.** Safety flags are now implemented inside the runtime `KSICollector` — same flag codes, but the runtime treats every flag as block-class (`req-fedramp-20x-ksi-collector-block-flags`). The three-severity refresh-time model below is retained for context only.
@@ -675,6 +691,7 @@ Sourced dynamically at CI time from `gh api /orgs/FedRAMP/members` plus a static
 ### Plugin Validation
 ----
 RID: `req-fedramp-20x-ksi-plugin-validation`
+
 Status: `Implemented`
 
 The plugin passes TAP's centralized plugin validation system at the structure level in v0 and is expected to pass `loads` and `runs` validation before broader publication.
@@ -693,6 +710,7 @@ Structure-level validation passes in strict mode. Loads and runs validation requ
 ### v0 Non-Goals
 ----
 RID: `req-fedramp-20x-ksi-nongoals`
+
 Status: `Proposed`
 
 This specification does not define:

@@ -40,6 +40,7 @@ This is a v1, plugin-owned panel — same justification as `finding_profile`: co
 ### Panel Type Contract
 ----
 RID: `req-ksi-instance-findings-panel`
+
 Status: `In Development`
 
 #### Implementation
@@ -65,6 +66,7 @@ Status: `In Development`
 ### Data Loading
 ----
 RID: `req-ksi-instance-findings-data`
+
 Status: `In Development`
 
 #### Implementation
@@ -91,6 +93,7 @@ Status: `In Development`
 ### Row Shape
 ----
 RID: `req-ksi-instance-findings-rows`
+
 Status: `In Development`
 
 Each row represents one finding. Columns, left to right:
@@ -117,6 +120,7 @@ The grouping/sort default is by age ascending (newest first), matching the open-
 ### Inline Detail Block
 ----
 RID: `req-ksi-instance-findings-detail`
+
 Status: `In Development`
 
 When a row's chevron is toggled open, Tabulator renders an inline detail block beneath the row. The detail block contains:
@@ -140,6 +144,7 @@ If a finding has zero related indicators or zero evidence, the corresponding min
 ### Evidence Expand
 ----
 RID: `req-ksi-instance-findings-evidence-expand`
+
 Status: `In Development`
 
 The Evidence mini-table inside each finding's inline detail block reuses the chevron-to-detail behavior from `panel-ksi-finding-profile.js`: clicking an evidence row's chevron expands a sub-detail panel beneath the evidence row containing the evidence body (description / scanner output).
@@ -158,6 +163,7 @@ This nested expansion is the load-bearing UX requirement for the panel — the u
 ### Empty State
 ----
 RID: `req-ksi-instance-findings-empty`
+
 Status: `In Development`
 
 An asset with no `HAS_COMPLIANCE_FINDING` edges renders a single-line "No findings" panel state — the panel is **not** hidden. Hiding the panel would mask the difference between "no findings" and "panel failed to load." The empty state is rendered by the template when the row payload is empty.
@@ -173,6 +179,7 @@ An asset with no `HAS_COMPLIANCE_FINDING` edges renders a single-line "No findin
 ### Title Linkage
 ----
 RID: `req-ksi-instance-findings-title-link`
+
 Status: `In Development`
 
 The Title cell links to the dedicated finding profile at `/fedramp-ksi/finding?entity_id=<finding_id>`. This is the same drill-in path the open-alerts table uses; consistency keeps the navigation model coherent.

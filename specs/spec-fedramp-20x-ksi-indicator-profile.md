@@ -37,6 +37,7 @@ The page receives the indicator's entity_id as a URL query parameter and uses a 
 ### Indicator Profile Panel Type
 ----
 RID: `req-ksi-profile-panel`
+
 Status: `Proposed`
 
 The indicator profile is a dedicated panel type registered by the KSI plugin.
@@ -63,6 +64,7 @@ The indicator profile is a dedicated panel type registered by the KSI plugin.
 ### Data Loading
 ----
 RID: `req-ksi-profile-data`
+
 Status: `Proposed`
 
 The profile panel loads the indicator and its graph neighborhood via a gryphon hub-and-spoke query.
@@ -85,6 +87,7 @@ The profile panel loads the indicator and its graph neighborhood via a gryphon h
 ### Hero Header
 ----
 RID: `req-ksi-profile-header`
+
 Status: `Proposed`
 
 The top of the profile displays the indicator's identity at a glance.
@@ -108,6 +111,7 @@ The top of the profile displays the indicator's identity at a glance.
 ### Statement Section
 ----
 RID: `req-ksi-profile-statement`
+
 Status: `Proposed`
 
 The requirement statement is the core content of the profile.
@@ -129,6 +133,7 @@ The requirement statement is the core content of the profile.
 ### Metadata Section
 ----
 RID: `req-ksi-profile-metadata`
+
 Status: `Proposed`
 
 Structured display of the indicator's reference data: NIST controls, terms, and external references.
@@ -151,6 +156,7 @@ Structured display of the indicator's reference data: NIST controls, terms, and 
 ### Change Log Section
 ----
 RID: `req-ksi-profile-changelog`
+
 Status: `Proposed`
 
 The indicator's `updated_log` displayed as a timeline of changes.
@@ -172,6 +178,7 @@ The indicator's `updated_log` displayed as a timeline of changes.
 ### Findings Table
 ----
 RID: `req-ksi-profile-findings-table`
+
 Status: `Implemented`
 
 A per-system table of findings related to this indicator — one row per (system, finding) pair. Reviewers reading the indicator profile see immediately *which assets currently have outstanding work against this indicator* without navigating away.
@@ -218,6 +225,7 @@ A per-system table of findings related to this indicator — one row per (system
 ### Page and Navigation
 ----
 RID: `req-ksi-profile-page`
+
 Status: `Proposed`
 
 The profile page is seeded via GRIFT and navigable from the compliance view.

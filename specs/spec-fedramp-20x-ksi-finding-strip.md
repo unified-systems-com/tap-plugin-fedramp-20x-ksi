@@ -37,6 +37,7 @@ The name *Finding Strip* is deliberate. Earlier iterations of this panel were ca
 ### Panel Type Contract
 ----
 RID: `req-finding-strip-panel-type`
+
 Status: `Implemented`
 
 The panel is a TAP plugin panel type registered with `tap_web.registry.panel_type_registry`. It exposes a fixed surface that the page rendering pipeline consumes.
@@ -74,6 +75,7 @@ Registration happens in `Fedramp20xKsiConfig.ready()` via `panel_type_registry.r
 ### Tile Schema
 ----
 RID: `req-finding-strip-tile-schema`
+
 Status: `Implemented`
 
 Each entry in `panel.config["tiles"]` is an object with a fixed set of keys controlling label, color, query, value extraction, and aggregation.
@@ -110,6 +112,7 @@ There is no per-tile `inputs` map in v0; tile queries are parameter-less from th
 ### Tile Resolution
 ----
 RID: `req-finding-strip-resolution`
+
 Status: `Implemented`
 
 For each tile in `panel.config["tiles"]`, the panel runs the configured gryphon query at request time and reduces the result envelope to a single integer per the tile's `mode`.
@@ -149,6 +152,7 @@ The loop is deliberately sequential — one query per tile, executed in declared
 ### Tile Error Handling
 ----
 RID: `req-finding-strip-error-handling`
+
 Status: `Implemented`
 
 A failed tile produces an error indicator in its slot but does not interfere with sibling tiles or the rest of the page.
@@ -177,6 +181,7 @@ The panel does not retry, surface the error to other tiles, or block page render
 ### Rendering And Styling
 ----
 RID: `req-finding-strip-rendering`
+
 Status: `Implemented`
 
 The panel renders into a single template that lays the tiles out as a flex row.
@@ -218,6 +223,7 @@ Color and typography conventions are TAP-default (slate scale), not framework-sp
 ### Instance Configuration
 ----
 RID: `req-finding-strip-instance-config`
+
 Status: `Implemented`
 
 Panel instances are seeded via GRIFT at the consuming plugin (not the panel-type-owning plugin). Tile content is per-page, per-deployment configuration; the panel type itself stays generic.

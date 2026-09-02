@@ -61,6 +61,7 @@ Until then, "two Tabulator instances inside a plugin-owned panel" is the right l
 ### Finding Profile Panel Type
 ----
 RID: `req-ksi-finding-profile-panel`
+
 Status: `Implemented`
 
 The finding profile is a dedicated panel type registered by the KSI plugin.
@@ -90,6 +91,7 @@ The finding profile is a dedicated panel type registered by the KSI plugin.
 ### Data Loading
 ----
 RID: `req-ksi-finding-profile-data`
+
 Status: `Implemented`
 
 The profile panel loads the finding and its full one-hop neighborhood via a single gryphon hub-and-spoke query.
@@ -127,6 +129,7 @@ The profile panel loads the finding and its full one-hop neighborhood via a sing
 ### Hero Header
 ----
 RID: `req-ksi-finding-profile-header`
+
 Status: `Implemented`
 
 The top of the profile shows the finding's identity at a glance.
@@ -157,6 +160,7 @@ The verdict pill that originally lived in the hero has been removed pending a do
 ### Identity Section
 ----
 RID: `req-ksi-finding-profile-meta`
+
 Status: `Implemented`
 
 A definition-list-style block of the finding's core facts (System / Systems and Description), with a subtle timestamp meta line below.
@@ -185,6 +189,7 @@ A definition-list-style block of the finding's core facts (System / Systems and 
 ### Related KSIs Table
 ----
 RID: `req-ksi-finding-profile-ksi-table`
+
 Status: `Implemented`
 
 A compact table of every KSI indicator related to this finding, with their short descriptions inline so reviewers don't have to context-switch to look them up.
@@ -218,6 +223,7 @@ A compact table of every KSI indicator related to this finding, with their short
 ### Evidence Table
 ----
 RID: `req-ksi-finding-profile-evidence-table`
+
 Status: `Implemented`
 
 A row-per-evidence table summarizing every `HAS_COMPLIANCE_EVIDENCE` artifact attached to the finding, with a click-to-expand pattern that reveals the full evidence description/output.
@@ -263,6 +269,7 @@ A row-per-evidence table summarizing every `HAS_COMPLIANCE_EVIDENCE` artifact at
 ### Page and Navigation
 ----
 RID: `req-ksi-finding-profile-page`
+
 Status: `Implemented`
 
 The profile page is seeded via GRIFT and reachable by URL.
@@ -288,6 +295,7 @@ The profile page is seeded via GRIFT and reachable by URL.
 ### Open Alerts Title Linkage
 ----
 RID: `req-ksi-finding-profile-open-alerts-link`
+
 Status: `Implemented`
 
 The genericom open-alerts table — currently the only place findings are listed — is updated so the title cell links to this profile page.

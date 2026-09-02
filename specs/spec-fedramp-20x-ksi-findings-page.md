@@ -40,6 +40,7 @@ The two panels live in this plugin (`fedramp_20x_ksi`) rather than in `genericom
 ### Page Entity
 ----
 RID: `req-ksi-findings-page-entity`
+
 Status: `Implemented`
 
 The Findings page is a TAP-managed `Page` entity owned by the fedramp_20x_ksi plugin.
@@ -82,6 +83,7 @@ The page is seeded by a new GRIFT bundle at `plugins/fedramp_20x_ksi/grift/findi
 ### Panel Slots
 ----
 RID: `req-ksi-findings-page-panels`
+
 Status: `Implemented`
 
 Two panel slots, two panel instances, both seeded in the same GRIFT batch as the page.
@@ -107,6 +109,7 @@ Each instance carries `hide_header: true` — the panel's intrinsic table header
 ### Findings By System Panel Type
 ----
 RID: `req-ksi-findings-by-system-panel`
+
 Status: `Implemented`
 
 A plugin-owned panel type that renders all open findings as a Tabulator table grouped by the system the finding applies to.
@@ -145,6 +148,7 @@ The panel is conceptually similar to the existing Genericom open-alerts panel ([
 ### Findings By KSI Panel Type
 ----
 RID: `req-ksi-findings-by-ksi-panel`
+
 Status: `Implemented`
 
 A plugin-owned panel type that renders the same finding dataset as a Tabulator table grouped by the KSI indicator each finding relates to.
@@ -184,6 +188,7 @@ Note: findings without a CONCERNS_COMPLIANCE_CONTROL edge are excluded from this
 ### Navigation
 ----
 RID: `req-ksi-findings-page-navigation`
+
 Status: `Implemented`
 
 The Findings page is reachable from:
@@ -205,6 +210,7 @@ The page is *not* added to a top-level navigation menu in v0. Top-level navigati
 ### Row Click-Through
 ----
 RID: `req-ksi-findings-page-row-actions`
+
 Status: `Implemented`
 
 Both panels expose row-level navigation links. No bulk actions, no row selection, no edit-in-place.

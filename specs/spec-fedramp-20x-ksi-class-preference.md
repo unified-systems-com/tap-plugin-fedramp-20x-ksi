@@ -77,6 +77,7 @@ The FedRAMP-side wiring is small in absolute lines of code — most of the mecha
 ### Preference Registration
 ----
 RID: `req-ksi-classpref-register`
+
 Status: `Backlog`
 
 The FedRAMP 20x KSI plugin registers exactly one client-state preference at startup.
@@ -114,6 +115,7 @@ The FedRAMP 20x KSI plugin registers exactly one client-state preference at star
 ### Preference Switcher Placement
 ----
 RID: `req-ksi-classpref-switcher-placement`
+
 Status: `Backlog`
 
 The Preference Switcher panel (specified by `req-web-cstate-switcher-panel`) is placed at the top of the `/fedramp-ksi` landing page so users can pick their working class before drilling into any specific indicator.
@@ -158,6 +160,7 @@ The Preference Switcher panel (specified by `req-web-cstate-switcher-panel`) is 
 ### Compliance View Adoption
 ----
 RID: `req-ksi-classpref-compliance-view`
+
 Status: `Backlog`
 
 The KSI compliance view's class selector — currently backed by an ad-hoc `localStorage` key per `req-ksi-compview-class-select` — is rewired to read/write through the platform client-state mechanism. The legacy `tap-ksi-class-selection` localStorage key is removed entirely; existing values in any browser are not preserved (greenfield rollout — see Philosophy "Why Greenfield" note below).
@@ -194,6 +197,7 @@ The KSI compliance view's class selector — currently backed by an ad-hoc `loca
 ### Indicator Profile Initial Class
 ----
 RID: `req-ksi-classpref-indicator-profile`
+
 Status: `Backlog`
 
 The indicator profile page renders with the user's preferred class active on first paint — no JS toggle round-trip required for the common case.
@@ -231,6 +235,7 @@ The indicator profile page renders with the user's preferred class active on fir
 ### Class Resolution Helpers
 ----
 RID: `req-ksi-classpref-helpers`
+
 Status: `Backlog`
 
 The internal helpers that pick a class-variant statement when the indicator has multiple variants accept a preferred class as their primary input.
@@ -260,6 +265,7 @@ The internal helpers that pick a class-variant statement when the indicator has 
 ### Finding Profile Forward Hook
 ----
 RID: `req-ksi-classpref-finding-future`
+
 Status: `Backlog`
 
 Today the finding model does not vary by class — findings carry a `CONCERNS_COMPLIANCE_CONTROL` edge with a `relationship_type` property, but no class-scoped fields. The finding profile (`spec-fedramp-20x-ksi-finding-profile.md`) therefore does not consume the preference today.
@@ -282,6 +288,7 @@ Proposed. Will move to Approved when the relevant follow-on iteration is scoped.
 ### System Page Forward Hook
 ----
 RID: `req-ksi-classpref-system-future`
+
 Status: `Backlog`
 
 Future KSI system pages (the asset-side view of compliance state — currently unscoped) will surface class-scoped expectations / variants for the systems they describe. Those pages are first-class consumers of `fedramp.class` from day one.

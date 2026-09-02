@@ -79,6 +79,7 @@ verified, stored whole. Decompose the source of truth; blob the renderings.
 ### Model Catalog
 ----
 RID: `req-fedramp-20x-ksi-compliance-catalog`
+
 Status: `Proposed`
 
 Seven `fedramp_20x_ksi` models. The KSI signal decomposes into four; the VDR
@@ -112,6 +113,7 @@ violations split and the VDR decomposition were explicitly chosen; each of the
 ### KSI Signal Model
 ----
 RID: `req-fedramp-20x-ksi-signal`
+
 Status: `Proposed`
 
 `ksi_signal` is one emission of the KSI signal document. Two emissions with the
@@ -148,6 +150,7 @@ Sigstore bundle). It is a JSON field.
 ### KSI Component Model
 ----
 RID: `req-fedramp-20x-ksi-component`
+
 Status: `Proposed`
 
 `ksi_component` is one entry of `components[]`. One model; `type` discriminates
@@ -183,6 +186,7 @@ marquee query does not need it. Flow-edge decomposition is a named non-goal.
 ### KSI Validation Model
 ----
 RID: `req-fedramp-20x-ksi-validation`
+
 Status: `Proposed`
 
 `ksi_validation` is one entry of `validations[]` — a policy result against a
@@ -209,6 +213,7 @@ both are the graph.
 ### KSI Violation Model
 ----
 RID: `req-fedramp-20x-ksi-violation`
+
 Status: `Proposed`
 
 `ksi_violation` is one specific finding from a failed validation. The source
@@ -241,6 +246,7 @@ plugin precisely so that future decision has both models in one place.
 ### VDR Report Model
 ----
 RID: `req-fedramp-20x-ksi-vdr-report`
+
 Status: `Proposed`
 
 `vdr_report` is one emission of the Vulnerability Detection and Response report.
@@ -270,6 +276,7 @@ the `ksi_signal` it cites.
 ### VDR Finding Model
 ----
 RID: `req-fedramp-20x-ksi-vdr-finding`
+
 Status: `Proposed`
 
 `vdr_finding` is one vulnerability finding — and the model where Sam's VDR
@@ -311,6 +318,7 @@ typed field regardless.
 ### Compliance Artifact Model
 ----
 RID: `req-fedramp-20x-ksi-compliance-artifact`
+
 Status: `Proposed`
 
 `compliance_artifact` is a rendering artifact kept whole. One model, `kind`
@@ -341,6 +349,7 @@ document as a blob.
 ### Edge Catalog
 ----
 RID: `req-fedramp-20x-ksi-compliance-edges`
+
 Status: `Proposed`
 
 Seven edges, all `fedramp_20x_ksi`-owned, slugs per the `<ACTION>_<OBJECT>`
@@ -380,6 +389,7 @@ shape as the `aws_core` edge-resolver seam. `sources` is `vdr_finding`;
 ### v0 Non-Goals
 ----
 RID: `req-fedramp-20x-ksi-compliance-nongoals`
+
 Status: `Proposed`
 
 Named, deferred — not abandoned (future-seam discipline).

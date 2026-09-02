@@ -53,6 +53,7 @@ The immediate downstream consumer of Finding is the status-badge alert count on 
 ### Finding Model
 ----
 RID: `req-fedramp-20x-ksi-finding-model`
+
 Status: `Implemented`
 
 The `finding` entity is a TAP-managed model with a minimal field set.
@@ -100,6 +101,7 @@ Keep the field list honestly minimal. Any field added here will need a migration
 ### Finding Status Lifecycle
 ----
 RID: `req-fedramp-20x-ksi-finding-status`
+
 Status: `Implemented`
 
 Findings carry an explicit status that reflects the *intrinsic* state of the finding — whether the underlying issue has been fixed — independent of whether any disposition (exception, risk acceptance, etc.) has been applied.
@@ -133,6 +135,7 @@ Keep the enum small. The temptation to add status values that project graph-rela
 ### Asset Linkage — `HAS_FINDING`
 ----
 RID: `req-fedramp-20x-ksi-finding-has-edge`
+
 Status: `Implemented`
 
 The `HAS_FINDING` edge connects any asset to the findings that have been observed against it.
@@ -164,6 +167,7 @@ The wildcard `sources` is deliberate: a finding can apply to an EC2 instance, an
 ### Indicator Linkage — `RELATED_INDICATOR`
 ----
 RID: `req-fedramp-20x-ksi-finding-related-edge`
+
 Status: `Implemented`
 
 The `RELATED_INDICATOR` edge connects a finding to the compliance indicator(s) it concerns.
@@ -218,6 +222,7 @@ The naming choice is load-bearing for the promotion path. `VIOLATES` bakes in a 
 ### Exception Model
 ----
 RID: `req-fedramp-20x-ksi-exception-model`
+
 Status: `Implemented`
 
 The `exception` entity represents a formal acceptance of one or more findings — a risk acknowledgment rather than a remediation. An exception captures that someone has reviewed a finding, decided not to fix it (at least for now), and documented the rationale.
@@ -266,6 +271,7 @@ The temptation to put `expiration_date`, `approver`, and `business_justification
 ### Exception Status Lifecycle
 ----
 RID: `req-fedramp-20x-ksi-exception-status`
+
 Status: `Implemented`
 
 Exceptions carry an explicit status. The status values align with how exceptions are typically managed in real compliance workflows: active acceptance, expired acceptance requiring re-review, and explicitly revoked acceptance.
@@ -308,6 +314,7 @@ The choice to leave `Finding.status` unmodified by exception state is deliberate
 ### Exception Linkage — `COVERS_FINDING`
 ----
 RID: `req-fedramp-20x-ksi-exception-edge`
+
 Status: `Implemented`
 
 The `COVERS_FINDING` edge connects an exception to the finding(s) it covers.
@@ -340,6 +347,7 @@ Edge writes have no side effects on `Finding.status`. The alert-count query expr
 ### Dimension Membership
 ----
 RID: `req-fedramp-20x-ksi-finding-dimension`
+
 Status: `Implemented`
 
 Findings and exceptions carry the `compliance: fedramp-20x` dimension by default, matching the other KSI-plugin models.
@@ -363,6 +371,7 @@ Findings and exceptions carry the `compliance: fedramp-20x` dimension by default
 ### Demo Seed Data
 ----
 RID: `req-fedramp-20x-ksi-finding-seed`
+
 Status: `Implemented`
 
 A small seed of findings ships with the plugin so downstream work — specifically the search-backed status-badge population in `spec-viz-badges.md` — has something to count.
@@ -399,6 +408,7 @@ Seed bundles for cross-plugin entity references need to be authored carefully: t
 ### Verdict Rollup From Edges
 ----
 RID: `req-fedramp-20x-ksi-finding-verdict-rollup`
+
 Status: `Backlog`
 
 A finding does not carry a verdict field on the model itself. Verdict signal lives on the finding's edges, in two places that share the same vocabulary (`violation`, `passing`, `informational`):
