@@ -90,6 +90,7 @@ rather than silently chosen.
 ### Boundary Model
 ----
 RID: `req-fedramp-20x-ksi-boundary-model`
+
 Status: `Implemented`
 
 `Boundary` is a `BaseModel` in `fedramp_20x_ksi` (`plugins/fedramp_20x_ksi/models/boundary.py`).
@@ -106,6 +107,7 @@ Status: `Implemented`
 ### Scoped-To-Boundary Edge
 ----
 RID: `req-fedramp-20x-ksi-boundary-edge`
+
 Status: `Implemented`
 
 `SCOPED_TO_BOUNDARY` (`plugins/fedramp_20x_ksi/edges/SCOPED_TO_BOUNDARY.edge.json`)
@@ -123,6 +125,7 @@ links a system component to the authorization boundary it is in scope for.
 ### Demo Seed Data
 ----
 RID: `req-fedramp-20x-ksi-boundary-seed`
+
 Status: `Implemented`
 
 The samsite landing GRIFT (`plugins/samsite/grift/landing.grift.json`)
@@ -142,6 +145,7 @@ boundary renders in the graph.
 ### Boundary Rendering
 ----
 RID: `req-fedramp-20x-ksi-boundary-rendering`
+
 Status: `Proposed`
 
 The intended visualization is a **bright red perimeter that visually
@@ -154,6 +158,7 @@ perimeter-hull rendering is the follow-up.
 ### Path-Embedded Membership
 ----
 RID: `req-fedramp-20x-ksi-boundary-path-membership`
+
 Status: `Proposed`
 
 The boundary is intended to be the first case of **directed-relationship

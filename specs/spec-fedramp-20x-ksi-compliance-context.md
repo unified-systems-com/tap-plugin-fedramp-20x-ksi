@@ -63,6 +63,7 @@ The model lives in the FedRAMP 20x KSI plugin (since `fedramp_class` is currentl
 ### Compliance Context Model
 ----
 RID: `req-fedramp-20x-ksi-compliance-context-model`
+
 Status: `Implemented`
 
 The `compliance_context` entity is a TAP-managed BaseModel that captures one Grid's posture under one compliance regime.
@@ -111,6 +112,7 @@ The `compliance_context` entity is a TAP-managed BaseModel that captures one Gri
 ### Regime Field
 ----
 RID: `req-fedramp-20x-ksi-compliance-context-regime`
+
 Status: `Implemented`
 
 The `regime` field identifies which compliance program a ComplianceContext represents.
@@ -138,6 +140,7 @@ The `regime` field identifies which compliance program a ComplianceContext repre
 ### FedRAMP Class Field
 ----
 RID: `req-fedramp-20x-ksi-compliance-context-fedramp-class`
+
 Status: `Implemented`
 
 The `fedramp_class` field captures the dominant FedRAMP 20x certification class for a FedRAMP 20x ComplianceContext.
@@ -172,6 +175,7 @@ The `fedramp_class` field captures the dominant FedRAMP 20x certification class 
 ### Dimension Membership
 ----
 RID: `req-fedramp-20x-ksi-compliance-context-dimension`
+
 Status: `Implemented`
 
 Each ComplianceContext instance carries the dimension of its regime so it sits in the same dimension namespace as the rest of that framework's entities.
@@ -196,6 +200,7 @@ Each ComplianceContext instance carries the dimension of its regime so it sits i
 ### Convention-Enforced Cardinality
 ----
 RID: `req-fedramp-20x-ksi-compliance-context-cardinality`
+
 Status: `Implemented`
 
 The "one ComplianceContext per regime per Grid" invariant is enforced by seeding convention, not by schema.
@@ -228,6 +233,7 @@ The graph layer does not yet have a uniqueness-constraint mechanism. A future `t
 ### Demo Seed Data
 ----
 RID: `req-fedramp-20x-ksi-compliance-context-seed`
+
 Status: `Implemented`
 
 The Genericom deployment plugin seeds a single FedRAMP 20x ComplianceContext on the demo Grid.

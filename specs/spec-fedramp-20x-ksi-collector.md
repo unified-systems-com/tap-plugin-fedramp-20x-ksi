@@ -55,6 +55,7 @@ This spec inherits the catalog vocabulary (Theme, Indicator, Certification Class
 ### Collector Class
 ----
 RID: `req-fedramp-20x-ksi-collector-class`
+
 Status: `Proposed`
 
 The runtime collector is a `CollectorBase` subclass, `KSICollector`, that lives in the plugin code and is registered into `collector_registry` at app startup.
@@ -97,6 +98,7 @@ def ready(self) -> None:
 ### Upstream Fetch
 ----
 RID: `req-fedramp-20x-ksi-collector-fetch`
+
 Status: `Proposed`
 
 The collector fetches the consolidated rules document directly over HTTPS from the FedRAMP/rules repo. No git, no submodule, no auth.
@@ -126,6 +128,7 @@ The collector fetches the consolidated rules document directly over HTTPS from t
 ### Collector Self-Test
 ----
 RID: `req-fedramp-20x-ksi-collector-self-test`
+
 Status: `Proposed`
 
 The KSI collector implements the tap-cares self-test/readiness contract (`req-tap-cares-collector-self-test`) with a deliberately narrow scope: can this installed collector reach its configured upstream endpoint?
@@ -170,6 +173,7 @@ The failure check should include a `CollectorDocRef` to the KSI collector docs o
 ### Pinned Schema and UUID Namespace
 ----
 RID: `req-fedramp-20x-ksi-collector-pin`
+
 Status: `Proposed`
 
 Two pinned files survive from the old refresh tooling, but they relocate from the tool's `pinned/` directory into the plugin's normal source tree:
@@ -193,6 +197,7 @@ Updating either file is a deliberate, reviewed code change. The collector does n
 ### Validation Scope
 ----
 RID: `req-fedramp-20x-ksi-collector-validation-scope`
+
 Status: `Implemented`
 
 The upstream document is now "FedRAMP Consolidated Rules for 2026" — it carries definitions (FRD), requirements (FRR), and key security indicators (KSI). The plugin only ingests the KSI subtree. The pinned schema's strictness matches the scope of ingestion: paranoid where we depend on shape, opaque where we don't.
@@ -231,6 +236,7 @@ The non-schema safety checks distinguish between *tamper-resistance* walks (whic
 ### Runtime Safety Model
 ----
 RID: `req-fedramp-20x-ksi-collector-safety`
+
 Status: `Proposed`
 
 The safety check set is a deliberate subset of the existing `req-fedramp-20x-ksi-safety` model, adapted to runtime context. **Every check is block-class.** The previous warn / block distinction is collapsed: anything the safety model flags fails the run, period. The grid is live; we accept the cost of strictness over the risk of a missed signal slipping through as a "warning."
@@ -297,6 +303,7 @@ The safety denylist content moves from `skills/refresh-ksi-catalog/safety/denyli
 ### Live Diff Against Grid
 ----
 RID: `req-fedramp-20x-ksi-collector-diff`
+
 Status: `Proposed`
 
 Prior state for the diff is the **live local TAP grid**, not a replay of shipped wave files. The collector reads existing `ksi_theme` and `ksi_indicator` entities via an approved read surface (search system or service-layer reads) and compares them to the fetched upstream by `code`.
@@ -326,6 +333,7 @@ This drops the wave-replay machinery entirely. Empty grid (fresh install) → ev
 ### GRIFT Batch Output
 ----
 RID: `req-fedramp-20x-ksi-collector-grift`
+
 Status: `Proposed`
 
 Each non-empty run produces exactly one GRIFT batch, submitted via `self.submit_grift(...)` (the `CollectorBase` method that wraps `grift_import` and accumulates batch IDs on the collector instance). The batch's `description_json` uses a new runtime format, **`tap.fedramp_20x_ksi.collection-v0`**, which simplifies the old `wave-v0` schema by dropping fields that don't apply at runtime.
@@ -389,6 +397,7 @@ The batch entity_id is a fresh UUIDv7 per run. Individual theme/indicator entity
 ### Mass-Deletion Guard
 ----
 RID: `req-fedramp-20x-ksi-collector-mass-deletion`
+
 Status: `Proposed`
 
 Inherits the spirit of `req-fedramp-20x-ksi-refresh-6`: a single run may not deprecate more than 10% of live indicators. Crossing the threshold raises block flag `MASS_DELETION`, fails the job, and prevents grid mutation.
@@ -409,6 +418,7 @@ The ratio is computed against the live grid count: `deprecated_count / live_indi
 ### CollectionJob Result Shape
 ----
 RID: `req-fedramp-20x-ksi-collector-job-result`
+
 Status: `Proposed`
 
 The KSI collector uses the existing `CollectionJob` lifecycle states (`READY`/`RUNNING`/`FAILED`/`SUCCESSFUL`) and the structured `results` field defined in `req-tap-cares-collector-job-model` (the `info` / `warn` / `error` buckets with four-field entries). No KSI-specific state, edge type, or metadata field. All structured failure surfacing flows through `self.record_error(...)` on the collector instance; all run-level successes flow through `self.record_info(...)`. Entries accumulate in `self.results` and are persisted by the task body at terminal state (see `req-tap-cares-collector-job-sole-writer`).
@@ -482,6 +492,7 @@ The `warn` bucket is unused by the v0 KSI collector — every safety flag is blo
 ### Test Strategy
 ----
 RID: `req-fedramp-20x-ksi-collector-test-strategy`
+
 Status: `Proposed`
 
 Two test surfaces:
@@ -510,6 +521,7 @@ Two test surfaces:
 ### Deprecation of Authorship Tooling
 ----
 RID: `req-fedramp-20x-ksi-collector-deprecation`
+
 Status: `Implemented`
 
 The catalog refresh authorship tooling is fully removed in this phase. Concretely:
@@ -573,6 +585,7 @@ Per direction from spec review: the existing data in any developer's local TAP g
 ### Future Work
 ----
 RID: `req-fedramp-20x-ksi-collector-future`
+
 Status: `Proposed`
 
 Items intentionally deferred:

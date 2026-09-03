@@ -39,6 +39,7 @@ The first version is informational only: no editing, no scoring, no evidence lin
 ### Compliance View Panel Type
 ----
 RID: `req-ksi-compview-panel`
+
 Status: `Implemented`
 
 The compliance view is a dedicated panel type registered by the KSI plugin, following the standard panel type contract from `spec-web-panel.md`.
@@ -69,6 +70,7 @@ The compliance view is a dedicated panel type registered by the KSI plugin, foll
 ### Data Loading
 ----
 RID: `req-ksi-compview-data`
+
 Status: `Implemented`
 
 The compliance view loads all KSI indicators and themes via a gryphon edge-type scan query and passes the raw subgraph envelope to the browser for client-side processing.
@@ -92,6 +94,7 @@ The compliance view loads all KSI indicators and themes via a gryphon edge-type 
 ### Theme Grouping
 ----
 RID: `req-ksi-compview-grouping`
+
 Status: `Implemented`
 
 Indicators are visually organized by their parent KSI theme, with each theme section showing the theme name and icon as a group header.
@@ -118,6 +121,7 @@ Indicators are visually organized by their parent KSI theme, with each theme sec
 ### Keyword Search
 ----
 RID: `req-ksi-compview-search`
+
 Status: `Implemented`
 
 A search bar above the table provides instant client-side keyword filtering across all indicator text fields. The search shrinks the table to only indicators containing the keyword(s).
@@ -146,6 +150,7 @@ A search bar above the table provides instant client-side keyword filtering acro
 ### Class Selector
 ----
 RID: `req-ksi-compview-class-select`
+
 Status: `Implemented`
 
 A dropdown selector allows choosing a FedRAMP Certification Class (a, b, c, d) or "All Classes". The selection filters the indicator list to those applicable at the chosen class and resolves the correct statement text for indicators with class-specific variants. The default selection is read from the Grid's FedRAMP 20x ComplianceContext via gryphon at panel render time; user changes during a session are not persisted client-side.
@@ -183,6 +188,7 @@ A dropdown selector allows choosing a FedRAMP Certification Class (a, b, c, d) o
 ### Indicator Columns
 ----
 RID: `req-ksi-compview-columns`
+
 Status: `Implemented`
 
 The compliance view displays a domain-specific column set tailored to the KSI indicator model, not the generic common-metadata columns used by the standard table panel.
@@ -215,6 +221,7 @@ The compliance view displays a domain-specific column set tailored to the KSI in
 ### Rendering Flow
 ----
 RID: `req-ksi-compview-render`
+
 Status: `Implemented`
 
 The compliance view follows the same rendering pattern as the standard table panel: server-side data embedding with client-side Tabulator mount from shipped static JS.
@@ -239,6 +246,7 @@ The compliance view follows the same rendering pattern as the standard table pan
 ### Page and URL
 ----
 RID: `req-ksi-compview-url`
+
 Status: `Implemented`
 
 The compliance view is accessible at a stable, human-readable URL so users can bookmark and share it.

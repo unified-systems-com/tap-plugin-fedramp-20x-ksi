@@ -42,6 +42,7 @@ This spec lives inside the FedRAMP 20x KSI plugin for the same reason Finding do
 ### Evidence Model
 ----
 RID: `req-fedramp-20x-ksi-evidence-model`
+
 Status: `Implemented`
 
 The `evidence` entity is a TAP-managed BaseModel with a minimal field set.
@@ -82,6 +83,7 @@ The `evidence` entity is a TAP-managed BaseModel with a minimal field set.
 ### Evidence Kind Vocabulary
 ----
 RID: `req-fedramp-20x-ksi-evidence-kind`
+
 Status: `Implemented`
 
 The `kind` field constrains evidence to a small categorical set covering the most common compliance artifact types.
@@ -116,6 +118,7 @@ The default value is `"other"` so unspecified-kind evidence remains valid.
 ### Finding Linkage — `HAS_EVIDENCE`
 ----
 RID: `req-fedramp-20x-ksi-evidence-has-edge`
+
 Status: `Implemented`
 
 A finding may have one or more pieces of evidence connected via the `HAS_EVIDENCE` edge.
@@ -153,6 +156,7 @@ Multiple `HAS_EVIDENCE` edges per finding are expected. The finding's effective 
 ### Evidence Support-Kind Vocabulary
 ----
 RID: `req-fedramp-20x-ksi-evidence-support-kind`
+
 Status: `Implemented`
 
 The `support_kind` enum on `HAS_EVIDENCE` classifies what verdict the evidence supports for the finding.
@@ -184,6 +188,7 @@ The vocabulary is intentionally aligned with (and extends) the `relationship_typ
 ### Dimension Membership
 ----
 RID: `req-fedramp-20x-ksi-evidence-dimension`
+
 Status: `Implemented`
 
 Evidence and `HAS_EVIDENCE` edges default to `compliance: fedramp-20x` while the model lives in this plugin.
