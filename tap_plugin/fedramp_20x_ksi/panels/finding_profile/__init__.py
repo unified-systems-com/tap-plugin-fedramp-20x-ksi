@@ -3,8 +3,8 @@
 Displays a single Finding's full story: hero header with status, identity
 section (system(s), description), related KSI table, and evidence table with
 click-to-expand details. Data is loaded via a gryphon hub-and-spoke query
-that returns the finding plus everything connected by HAS_COMPLIANCE_FINDING (inbound),
-CONCERNS_COMPLIANCE_CONTROL (outbound), and HAS_COMPLIANCE_EVIDENCE (outbound) edges in one pass.
+that returns the finding plus everything connected by CARRIES_COMPLIANCE_FINDING (inbound),
+CONCERNS_COMPLIANCE_CONTROL (outbound), and CITES_COMPLIANCE_EVIDENCE (outbound) edges in one pass.
 
 Spec: plugins/fedramp_20x_ksi/specs/spec-fedramp-20x-ksi-finding-profile.md
 """
@@ -186,7 +186,7 @@ class KsiFindingProfilePanelType:
             to_id = ebody.get("to_entity_id")
             props = ebody.get("properties") or {}
 
-            if etype == "HAS_COMPLIANCE_FINDING__compliance_core" and to_id == entity_id:
+            if etype == "CARRIES_COMPLIANCE_FINDING__compliance_core" and to_id == entity_id:
                 sys_node = nodes_by_id.get(from_id or "")
                 if sys_node is None:
                     continue
@@ -214,7 +214,7 @@ class KsiFindingProfilePanelType:
                         "relationship_type": props.get("relationship_type", ""),
                     }
                 )
-            elif etype == "HAS_COMPLIANCE_EVIDENCE__compliance_core" and from_id == entity_id:
+            elif etype == "CITES_COMPLIANCE_EVIDENCE__compliance_core" and from_id == entity_id:
                 ev_node = nodes_by_id.get(to_id or "")
                 if ev_node is None:
                     continue

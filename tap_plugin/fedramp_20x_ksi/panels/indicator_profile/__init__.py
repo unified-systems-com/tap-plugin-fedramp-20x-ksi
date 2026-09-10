@@ -195,7 +195,7 @@ class KsiIndicatorProfilePanelType:
 
 
 def _load_findings_rows(indicator_entity_id: str) -> list[dict[str, Any]]:
-    """Two-hop query: findings linked to this indicator + their HAS_COMPLIANCE_FINDING parents.
+    """Two-hop query: findings linked to this indicator + their CARRIES_COMPLIANCE_FINDING parents.
 
     Returns flat (system, finding) row pairs. A finding with multiple parents
     emits multiple rows; a finding with none emits a single row with an empty
@@ -212,7 +212,7 @@ def _load_findings_rows(indicator_entity_id: str) -> list[dict[str, Any]]:
             definition={
                 "query": [
                     "MATCH (i)<-[r1:CONCERNS_COMPLIANCE_CONTROL__compliance_core]-(f:compliance_core__compliance_finding)",
-                    "MATCH (s)-[r2:HAS_COMPLIANCE_FINDING__compliance_core]->(f)",
+                    "MATCH (s)-[r2:CARRIES_COMPLIANCE_FINDING__compliance_core]->(f)",
                     "WHERE i.entity_id = $entity_id",
                     "RETURN f, r1, r2, s",
                 ]
@@ -236,11 +236,11 @@ def _load_findings_rows(indicator_entity_id: str) -> list[dict[str, Any]]:
         if eid:
             nodes_by_id[eid] = n
 
-    # Map finding_id -> [parent_system_id, ...] from HAS_COMPLIANCE_FINDING edges.
+    # Map finding_id -> [parent_system_id, ...] from CARRIES_COMPLIANCE_FINDING edges.
     parents_by_finding: dict[str, list[str]] = {}
     for edge in edges:
         ebody = edge.get("edge") or {}
-        if ebody.get("edge_type") != "HAS_COMPLIANCE_FINDING__compliance_core":
+        if ebody.get("edge_type") != "CARRIES_COMPLIANCE_FINDING__compliance_core":
             continue
         fid = ebody.get("to_entity_id")
         sid = ebody.get("from_entity_id")

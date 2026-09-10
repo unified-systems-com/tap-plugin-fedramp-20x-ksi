@@ -30,7 +30,11 @@ dynamic = ["version"]
 dependencies = [
     # Regime-agnostic compliance vocabulary substrate: the compliance_view panel
     # queries compliance_core__compliance_context (req-compliance-core-migration).
-    "tap-plugin-compliance-core",
+    # Lower bound 0.3.0: the release that renamed the evidence/finding edges to
+    # CITES_COMPLIANCE_EVIDENCE / CARRIES_COMPLIANCE_FINDING (req-tap-plugin-edge-naming);
+    # the panels here read the NEW slugs, and an older compliance_core would make them
+    # read nothing, silently.
+    "tap-plugin-compliance-core>=0.3.0,<0.4",
 ]
 
 [project.entry-points."tap.plugins"]

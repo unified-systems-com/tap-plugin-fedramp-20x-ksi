@@ -6,7 +6,7 @@ name = "FedRAMP 20x KSI"
 description = "FedRAMP 20x Key Security Indicators (KSI) framework catalog — themes and indicators."
 
 depends_on = [
-    { slug = "compliance_core", note = "consumes the regime-agnostic compliance substrate — compliance_context (posture) plus compliance_finding/evidence/exception/boundary node types and their edges (HAS_COMPLIANCE_EVIDENCE, COVERS_COMPLIANCE_FINDING, HAS_COMPLIANCE_FINDING, SCOPED_TO_COMPLIANCE_BOUNDARY, CONCERNS_COMPLIANCE_CONTROL — the last is a wildcard-target edge whose ksi_indicator targets our panels supply). Needs the types registered + boot-ordered ahead" },
+    { slug = "compliance_core", note = "consumes the regime-agnostic compliance substrate — compliance_context (posture) plus compliance_finding/evidence/exception/boundary node types and their edges (CITES_COMPLIANCE_EVIDENCE, COVERS_COMPLIANCE_FINDING, CARRIES_COMPLIANCE_FINDING, SCOPED_TO_COMPLIANCE_BOUNDARY, CONCERNS_COMPLIANCE_CONTROL — the last is a wildcard-target edge whose ksi_indicator targets our panels supply). Needs the types registered + boot-ordered ahead" },
 ]
 
 [models]
@@ -41,4 +41,4 @@ ksi_schedule = "grift/ksi-schedule.grift.json"
 [[boot.records]]
 name = "ci"
 description = "RESERVED NAME (req-boot-bootstrap-ci-record): the stack this plugin's own tests run in — depends_on closure + self, offline, credential-free. The consumer flips self to editable."
-sha256 = "91e92f4b136ca6bd92ea75adfd0e0de252fe3485390ac0f099bbe1f3a57ecd9e"
+sha256 = "b902d46f0f70732e5d0ce7ec439dfb70b3adc3020ad84b122251a3aa811c3d23"
