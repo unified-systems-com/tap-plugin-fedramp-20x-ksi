@@ -2,7 +2,7 @@
 
 > **SUPERSEDED (Phase B, 2026-07-08).** The `evidence` model moved out of `fedramp_20x_ksi`
 > into the regime-agnostic **compliance_core** substrate as
-> `compliance_core__compliance_evidence`, with its `HAS_COMPLIANCE_EVIDENCE` edge. Its
+> `compliance_core__compliance_evidence`, with its `CITES_COMPLIANCE_EVIDENCE` edge. Its
 > contract now lives in
 > [`spec-compliance-core-v0.md`](../../compliance_core/specs/spec-compliance-core-v0.md).
 > Retained for the evidence-supports-a-finding-verdict rationale.

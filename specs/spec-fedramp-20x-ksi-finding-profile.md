@@ -10,7 +10,7 @@ In v0 the page is read-only. Lifecycle controls (resolving, attaching evidence, 
 
 The page mirrors the visual structure of the KSI Indicator Profile (`spec-fedramp-20x-ksi-indicator-profile.md`) intentionally: hero header, sectioned body, breadcrumb, the same typography, chip styles, and table conventions. The two profiles together establish the consistent look-and-feel that subsequent profile pages (Asset, Evidence, Exception, Resolution) will inherit.
 
-The page receives the finding's `entity_id` as a URL query parameter and uses a single gryphon hub-and-spoke query to load the finding plus its full neighborhood — every node connected by a `HAS_COMPLIANCE_FINDING`, `CONCERNS_COMPLIANCE_CONTROL`, or `HAS_COMPLIANCE_EVIDENCE` edge — in one pass.
+The page receives the finding's `entity_id` as a URL query parameter and uses a single gryphon hub-and-spoke query to load the finding plus its full neighborhood — every node connected by a `CARRIES_COMPLIANCE_FINDING`, `CONCERNS_COMPLIANCE_CONTROL`, or `CITES_COMPLIANCE_EVIDENCE` edge — in one pass.
 
 ### Why A Plugin-Owned Panel (And Not The Standard Table Panel) For v0
 
@@ -100,15 +100,15 @@ The profile panel loads the finding and its full one-hop neighborhood via a sing
 - `get_view_context()` reads `entity_id` from `request.GET`.
 - Executes the standard hub-and-spoke gryphon: `MATCH (hub)-[e]-(neighbor) WHERE hub.entity_id = $entity_id RETURN hub, e, neighbor`.
 - The neighborhood will include:
-  - **Inbound `HAS_COMPLIANCE_FINDING`** edges from one or more system/asset nodes (any entity type).
+  - **Inbound `CARRIES_COMPLIANCE_FINDING`** edges from one or more system/asset nodes (any entity type).
   - **Outbound `CONCERNS_COMPLIANCE_CONTROL`** edges to KSI indicator nodes, with a `relationship_type` edge property.
-  - **Outbound `HAS_COMPLIANCE_EVIDENCE`** edges to evidence nodes, with `support_kind` and optional `note` edge properties.
+  - **Outbound `CITES_COMPLIANCE_EVIDENCE`** edges to evidence nodes, with `support_kind` and optional `note` edge properties.
 - The panel walks the returned subgraph in Python and builds a structured view-model:
   - `finding` — flat dict of finding fields plus computed presentation fields: `created_full` / `updated_full` (full UTC timestamps for hover tooltips), and `created_relative` / `updated_relative` (short human-friendly labels for inline display).
-  - `systems` — ordered list of `{entity_id, entity_type, name}` for every `HAS_COMPLIANCE_FINDING` source. Multi-system findings render as a comma-separated list in the identity section.
+  - `systems` — ordered list of `{entity_id, entity_type, name}` for every `CARRIES_COMPLIANCE_FINDING` source. Multi-system findings render as a comma-separated list in the identity section.
   - `ksis` — ordered list of `{entity_id, code, name, description, relationship_type}` for every `CONCERNS_COMPLIANCE_CONTROL` target.
-  - `evidence` — ordered list of `{entity_id, name, kind, description, support_kind, note, updated_relative, timestamp_tooltip}` for every `HAS_COMPLIANCE_EVIDENCE` target. `timestamp_tooltip` is a pre-formatted two-line string (`Created: …` / `Updated: …`) bound to the row's Updated cell as a hover tooltip.
-- **No aggregated verdict in v0.** The view-model does not emit a finding-level `verdict` field. The first iteration computed one from `HAS_COMPLIANCE_EVIDENCE.support_kind` values, but the rule was unspec'd; both this requirement and the hero pill have been deferred until `spec-fedramp-20x-ksi-finding.md` `req-fedramp-20x-ksi-finding-verdict-rollup` (Backlog) lands. Per-edge verdict signal is still surfaced unmodified on `evidence[i].support_kind` and `ksis[i].relationship_type` for tables that render their own per-row pills.
+  - `evidence` — ordered list of `{entity_id, name, kind, description, support_kind, note, updated_relative, timestamp_tooltip}` for every `CITES_COMPLIANCE_EVIDENCE` target. `timestamp_tooltip` is a pre-formatted two-line string (`Created: …` / `Updated: …`) bound to the row's Updated cell as a hover tooltip.
+- **No aggregated verdict in v0.** The view-model does not emit a finding-level `verdict` field. The first iteration computed one from `CITES_COMPLIANCE_EVIDENCE.support_kind` values, but the rule was unspec'd; both this requirement and the hero pill have been deferred until `spec-fedramp-20x-ksi-finding.md` `req-fedramp-20x-ksi-finding-verdict-rollup` (Backlog) lands. Per-edge verdict signal is still surfaced unmodified on `evidence[i].support_kind` and `ksis[i].relationship_type` for tables that render their own per-row pills.
 - **Relative-time helper.** A small Python helper renders `datetime` deltas as `just now` / `Nm ago` / `Nh ago` / `yesterday` / `Nd ago` / `MMM D` (same year) / `MMM D, YYYY` (prior years). The helper output goes to `updated_relative` and `created_relative`; the full UTC timestamps go to the `*_full` fields used as hover tooltips.
 - Default subgraph layer is `extended` so any `icon_url` or computed presentation fields surface naturally.
 - If the finding is missing or the entity_id is invalid, the panel renders an error state rather than crashing.
@@ -118,8 +118,8 @@ The profile panel loads the finding and its full one-hop neighborhood via a sing
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
 | req-ksi-finding-profile-data-1 | Single Gryphon Query | Implemented | Finding, systems, KSIs, and evidence are loaded in one hub-and-spoke gryphon query. | |
-| req-ksi-finding-profile-data-2 | Multi-System Support | Implemented | The view-model represents `HAS_COMPLIANCE_FINDING` parents as a list, not a single value. | |
-| req-ksi-finding-profile-data-3 | Edge Properties Captured | Implemented | `CONCERNS_COMPLIANCE_CONTROL.relationship_type`, `HAS_COMPLIANCE_EVIDENCE.support_kind`, and `HAS_COMPLIANCE_EVIDENCE.note` are surfaced into the view-model. | |
+| req-ksi-finding-profile-data-2 | Multi-System Support | Implemented | The view-model represents `CARRIES_COMPLIANCE_FINDING` parents as a list, not a single value. | |
+| req-ksi-finding-profile-data-3 | Edge Properties Captured | Implemented | `CONCERNS_COMPLIANCE_CONTROL.relationship_type`, `CITES_COMPLIANCE_EVIDENCE.support_kind`, and `CITES_COMPLIANCE_EVIDENCE.note` are surfaced into the view-model. | |
 | req-ksi-finding-profile-data-4 | Graceful Missing Entity | Implemented | Missing or invalid `entity_id` renders an error state rather than crashing. | |
 | req-ksi-finding-profile-data-5 | No Aggregated Verdict In v0 | Implemented | The view-model emits no finding-level `verdict` field. Per-edge verdict signal (`evidence[i].support_kind`, `ksis[i].relationship_type`) is surfaced unmodified for per-row consumers. | Pending `req-fedramp-20x-ksi-finding-verdict-rollup` |
 | req-ksi-finding-profile-data-6 | Relative Timestamps | Implemented | The view-model emits both relative (`*_relative`) and full UTC (`*_full`) timestamp strings for the finding and evidence rows. | |
@@ -178,7 +178,7 @@ A definition-list-style block of the finding's core facts (System / Systems and 
 
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
-| req-ksi-finding-profile-meta-1 | Multi-System Comma List | Implemented | When a finding has multiple `HAS_COMPLIANCE_FINDING` parents, the row shows a comma-separated list of names. | |
+| req-ksi-finding-profile-meta-1 | Multi-System Comma List | Implemented | When a finding has multiple `CARRIES_COMPLIANCE_FINDING` parents, the row shows a comma-separated list of names. | |
 | req-ksi-finding-profile-meta-2 | System Name Links | Implemented | Each system name links to the system's entity view. | |
 | req-ksi-finding-profile-meta-3 | Description Rendered | Implemented | The finding's `description` is rendered as plain text in the identity section. | |
 | req-ksi-finding-profile-meta-4 | Singular/Plural System Label | Implemented | The label reads `System` when there is one parent and `Systems` when there are multiple. | |
@@ -226,18 +226,18 @@ RID: `req-ksi-finding-profile-evidence-table`
 
 Status: `Implemented`
 
-A row-per-evidence table summarizing every `HAS_COMPLIANCE_EVIDENCE` artifact attached to the finding, with a click-to-expand pattern that reveals the full evidence description/output.
+A row-per-evidence table summarizing every `CITES_COMPLIANCE_EVIDENCE` artifact attached to the finding, with a click-to-expand pattern that reveals the full evidence description/output.
 
 #### Implementation
 - Section header: "Evidence".
 - Rendered as a Tabulator table, initialized from a JSON payload embedded in the panel's HTML (same library and embedded-payload pattern as the KSI table and the genericom open-alerts panel).
 - Layout: `fitColumns`. No pagination; per-finding evidence counts are small.
 - Columns (collapsed-row state, left-to-right):
-  - **Verdict** — `support_kind` from the `HAS_COMPLIANCE_EVIDENCE` edge (`passing` / `violation` / `informational`), rendered via a Tabulator formatter as a colored pill. **Placed first** so it visually aligns with the Relationship column at the top-left of the KSI table — both pill columns run down the same left edge of the page.
+  - **Verdict** — `support_kind` from the `CITES_COMPLIANCE_EVIDENCE` edge (`passing` / `violation` / `informational`), rendered via a Tabulator formatter as a colored pill. **Placed first** so it visually aligns with the Relationship column at the top-left of the KSI table — both pill columns run down the same left edge of the page.
   - **Name** — evidence name, plain text.
   - **Kind** — evidence `kind` (`screenshot` / `scanner_output` / `policy_doc` / `attestation` / `log_excerpt` / `other`), rendered via a Tabulator formatter as a small monospace tag.
   - **Updated** — relative-time label (e.g. `1h ago` / `yesterday` / `Mar 12`) right-aligned in a narrow column, rendered by a Tabulator formatter that binds the row's `timestamp_tooltip` two-line string (Created / Updated full UTC timestamps) to the cell's `title` attribute. Replaces an earlier draft that used two full-ISO timestamp columns; this single relative column is narrower, more readable, and keeps the precise timestamps one hover away.
-  - **Note** — the optional `note` from the `HAS_COMPLIANCE_EVIDENCE` edge, single-line truncated by Tabulator with the full text in a `title` attribute for hover.
+  - **Note** — the optional `note` from the `CITES_COMPLIANCE_EVIDENCE` edge, single-line truncated by Tabulator with the full text in a `title` attribute for hover.
 - Row expansion: click-to-expand is implemented via a Tabulator `rowClick` event handler subscribed via `table.on("rowClick", …)` and an **external detail container** (`#finding-profile-evidence-details`) rendered as a sibling of the Tabulator mount in the panel template. On row click the handler appends a `.finding-evidence-detail` `<div>` to the external container, keyed by `data-finding-detail-for` = evidence `entity_id`; clicking the same row again removes that block. *Why external?* Tabulator manages the DOM under its `tabulator-table` element and wipes injected siblings on its internal redraws (sort, scroll, layout recalc). An external container is safe from those redraws and the only DOM touch on the row itself is a `--expanded` class for chevron rotation. Each detail block carries its own header (the evidence name) so it remains identifiable when multiple are open at once.
 - The detail `<div>` contains the evidence's full `description` inside a `<pre>` block with word-wrap so multi-line scanner output (e.g. raw `dig` output with leading whitespace) preserves its layout.
 - A chevron control rendered in a synthetic last column rotates 90° on expand via the row's `--expanded` class. Clicking anywhere on the row — not just the chevron — toggles expansion.
@@ -255,7 +255,7 @@ A row-per-evidence table summarizing every `HAS_COMPLIANCE_EVIDENCE` artifact at
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
 | req-ksi-finding-profile-evidence-table-1 | Row Per Evidence | Implemented | Each evidence artifact renders as one Tabulator row. | |
-| req-ksi-finding-profile-evidence-table-2 | Verdict Pill | Implemented | The HAS_COMPLIANCE_EVIDENCE.support_kind renders as a colored pill in its own column via a Tabulator formatter. | |
+| req-ksi-finding-profile-evidence-table-2 | Verdict Pill | Implemented | The CITES_COMPLIANCE_EVIDENCE.support_kind renders as a colored pill in its own column via a Tabulator formatter. | |
 | req-ksi-finding-profile-evidence-table-3 | Click-To-Expand | Implemented | Clicking the row toggles a detail strip showing the evidence description. | Detail blocks live in an external sibling container below the table; row gains `--expanded` class for chevron rotation |
 | req-ksi-finding-profile-evidence-table-4 | Independent Expand | Implemented | Multiple rows may be expanded at the same time; expanded blocks stack in the external container in click order. | |
 | req-ksi-finding-profile-evidence-table-5 | Preformatted Description | Implemented | Evidence description renders inside a `<pre>` block with word-wrap so scanner output preserves layout. | |

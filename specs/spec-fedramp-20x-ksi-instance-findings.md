@@ -72,8 +72,8 @@ Status: `In Development`
 #### Implementation
 - New gryphon Search seeded in the EC2 instance page GRIFT, parameterized on `$entity_id`:
   ```
-  MATCH (asset)-[hf:HAS_COMPLIANCE_FINDING]->(f:finding) WHERE asset.entity_id = $entity_id
-  OPTIONAL MATCH (f)-[he:HAS_COMPLIANCE_EVIDENCE]->(ev:evidence)
+  MATCH (asset)-[hf:CARRIES_COMPLIANCE_FINDING]->(f:finding) WHERE asset.entity_id = $entity_id
+  OPTIONAL MATCH (f)-[he:CITES_COMPLIANCE_EVIDENCE]->(ev:evidence)
   OPTIONAL MATCH (f)-[ri:CONCERNS_COMPLIANCE_CONTROL]->(ksi:ksi_indicator)
   RETURN asset, hf, f, he, ev, ri, ksi
   ```
@@ -166,7 +166,7 @@ RID: `req-ksi-instance-findings-empty`
 
 Status: `In Development`
 
-An asset with no `HAS_COMPLIANCE_FINDING` edges renders a single-line "No findings" panel state — the panel is **not** hidden. Hiding the panel would mask the difference between "no findings" and "panel failed to load." The empty state is rendered by the template when the row payload is empty.
+An asset with no `CARRIES_COMPLIANCE_FINDING` edges renders a single-line "No findings" panel state — the panel is **not** hidden. Hiding the panel would mask the difference between "no findings" and "panel failed to load." The empty state is rendered by the template when the row payload is empty.
 
 #### Acceptance Criteria
 
@@ -196,7 +196,7 @@ The Title cell links to the dedicated finding profile at `/fedramp-ksi/finding?e
 
 - Resolved findings — only `status="open"` renders.
 - Exception coverage — covered findings are not visually distinguished in v0; the `COVERS_COMPLIANCE_FINDING` edge is read by the open-findings counter elsewhere but not by this panel.
-- Findings on assets nested under this asset (programs, ports, network interfaces hosted by an EC2). v0 only walks `HAS_COMPLIANCE_FINDING` directly from the asset; deeper rollup is Future.
+- Findings on assets nested under this asset (programs, ports, network interfaces hosted by an EC2). v0 only walks `CARRIES_COMPLIANCE_FINDING` directly from the asset; deeper rollup is Future.
 - Multi-indicator findings render only the first KSI in the row chip; full list still appears in the inline detail mini-table.
 - Lifecycle controls (resolve, attach evidence, edit relationship) — read-only panel.
 

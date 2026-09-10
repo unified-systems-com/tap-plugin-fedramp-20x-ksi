@@ -1,7 +1,7 @@
 """Shared row-building helpers for the Findings page panels.
 
 The findings_by_system and findings_by_ksi panels render the same dataset
-(all open findings with their HAS_COMPLIANCE_FINDING parent and any CONCERNS_COMPLIANCE_CONTROL
+(all open findings with their CARRIES_COMPLIANCE_FINDING parent and any CONCERNS_COMPLIANCE_CONTROL
 linkage) under different group-by lenses. This module centralizes the
 envelope→row flattening so both panels stay in sync. See
 spec-fedramp-20x-ksi-findings-page.md.
@@ -40,7 +40,7 @@ def build_findings_rows(envelope: dict[str, Any]) -> list[dict[str, Any]]:
     for edge in envelope.get("edges", []):
         edge_body = edge.get("edge") or {}
         et = edge_body.get("edge_type")
-        if et == "HAS_COMPLIANCE_FINDING__compliance_core":
+        if et == "CARRIES_COMPLIANCE_FINDING__compliance_core":
             finding_id = edge_body.get("to_entity_id")
             parent_id = edge_body.get("from_entity_id")
             if finding_id and parent_id and finding_id not in parents_by_finding:
