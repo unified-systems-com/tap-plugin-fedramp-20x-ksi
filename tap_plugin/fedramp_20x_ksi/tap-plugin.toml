@@ -1,5 +1,6 @@
 manifest_version = "0"
 plugin_version = "0.1.0"
+requires_tap = ">=0.1.5"
 slug = "fedramp_20x_ksi"
 name = "FedRAMP 20x KSI"
 description = "FedRAMP 20x Key Security Indicators (KSI) framework catalog — themes and indicators."
@@ -36,3 +37,8 @@ ksi_indicator_profile_page = "grift/ksi-indicator-profile-page.grift.json"
 finding_profile_page = "grift/finding-profile-page.grift.json"
 findings_page = "grift/findings-page.grift.json"
 ksi_schedule = "grift/ksi-schedule.grift.json"
+
+[[boot.records]]
+name = "ci"
+description = "RESERVED NAME (req-boot-bootstrap-ci-record): the stack this plugin's own tests run in — depends_on closure + self, offline, credential-free. The consumer flips self to editable."
+sha256 = "91e92f4b136ca6bd92ea75adfd0e0de252fe3485390ac0f099bbe1f3a57ecd9e"
