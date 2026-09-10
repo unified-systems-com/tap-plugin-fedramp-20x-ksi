@@ -1,5 +1,6 @@
 manifest_version = "0"
 plugin_version = "0.1.0"
+requires_tap = ">=0.1.5"
 slug = "fedramp_20x_ksi"
 name = "FedRAMP 20x KSI"
 description = "FedRAMP 20x Key Security Indicators (KSI) framework catalog — themes and indicators."
